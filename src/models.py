@@ -24,6 +24,17 @@ class NeuralNetSpec:
 
 
 @dataclass
+class Event:
+    # 事件驱动：用于从后端JSON传递捕食/繁殖/成长等效果，由前端渲染接管逻辑
+    type: Literal["predation", "breed", "spawn", "despawn", "grow"]
+    actor_id: Optional[str] = None
+    target_id: Optional[str] = None
+    energy_gain: Optional[float] = None
+    parent_id: Optional[str] = None
+    child: Optional[Dict] = None  # 子体的基本字段（id/type/x/y/angle/radius等）
+
+
+@dataclass
 class EntityState:
     id: str
     type: EntityType
@@ -40,8 +51,9 @@ class EntityState:
     generation: int = 0
     offspring_count: int = 0
 
-    fov_deg: float = 60.0
-    fov_range: float = 200.0
+    # 视野参数交由前端配置主导；如后端提供则覆盖
+    fov_deg: Optional[float] = None
+    fov_range: Optional[float] = None
     rays: List[RayHit] = field(default_factory=list)
 
     nn: NeuralNetSpec = field(default_factory=NeuralNetSpec)
@@ -63,6 +75,9 @@ class EntityState:
 class WorldState:
     tick: int
     entities: List[EntityState] = field(default_factory=list)
+    # 新增：事件与计数（用于前端渲染驱动效果与展示）
+    events: List[Event] = field(default_factory=list)
+    counters: Optional[Dict[str, int]] = None
 
     @staticmethod
     def from_dict(payload: Dict) -> "WorldState":
@@ -85,17 +100,20 @@ class WorldState:
                     age=float(e.get("age", 0.0)),
                     generation=int(e.get("generation", 0)),
                     offspring_count=int(e.get("offspring_count", 0)),
-                    fov_deg=float(e.get("fov_deg", 60.0)),
-                    fov_range=float(e.get("fov_range", 200.0)),
-                rays=rays,
-                split_energy=float(e.get("split_energy", 120.0)),
-                target_id=e.get("target_id"),
-                iteration=int(e.get("iteration", tick)),
-                breed_cd=float(e.get("breed_cd", 0.0)),
-                spawn_progress=float(e.get("spawn_progress", 1.0)),
-                should_persist=bool(e.get("should_persist", False)),
-                lifespan=e.get("lifespan"),
-                saved=bool(e.get("saved", False)),
+                    # 若后端提供，则使用；否则由前端按类型配置
+                    fov_deg=(float(e["fov_deg"]) if e.get("fov_deg") is not None else None),
+                    fov_range=(float(e["fov_range"]) if e.get("fov_range") is not None else None),
+                    rays=rays,
+                    split_energy=float(e.get("split_energy", 120.0)),
+                    target_id=e.get("target_id"),
+                    iteration=int(e.get("iteration", tick)),
+                    breed_cd=float(e.get("breed_cd", 0.0)),
+                    spawn_progress=float(e.get("spawn_progress", 1.0)),
+                    should_persist=bool(e.get("should_persist", False)),
+                    lifespan=e.get("lifespan"),
+                    saved=bool(e.get("saved", False)),
+                )
             )
-        )
-        return WorldState(tick=tick, entities=entities)
+        events = [Event(**ev) for ev in payload.get("events", [])]
+        counters = payload.get("counters")
+        return WorldState(tick=tick, entities=entities, events=events, counters=counters)
