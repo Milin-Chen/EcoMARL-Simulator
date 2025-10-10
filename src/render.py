@@ -76,6 +76,9 @@ class PygameRenderer:
         # 子代/父代兜底统计（后端未提供实体字段时基于事件推导）
         self._gen_fallback: Dict[str, int] = {}
         self._offspring_fallback: Dict[str, int] = {}
+        # 全局相机状态
+        self._cam_zoom: float = 1.0
+        self._cam_lerp: float = float(getattr(config, "CAMERA_LERP", 0.18))
 
         # 性能与异常监控
         self._last_dt_sec: float = 0.0
@@ -280,6 +283,8 @@ class PygameRenderer:
             # 文本起点：色块右侧加偏移，确保不出框
             tx = lg_x + gap + cell + 6
             self.screen.blit(text_img, (tx, row_y - 1))
+
+    # 注：局部放大方法已删除，统一采用全局相机跟随与缩放
 
     def _fmt_age(self, age_seconds: float) -> str:
         # 将秒数格式化为 mm:ss.ss
@@ -692,6 +697,7 @@ class PygameRenderer:
                 self.running = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 self._pick_entity(world, pygame.mouse.get_pos())
+                # 选中实体将启用全局相机跟随与缩放
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     self.paused = not self.paused
@@ -738,7 +744,24 @@ class PygameRenderer:
                         self._ghost_idx = max(self._ghost_idx - 1, 0)
 
     def draw_world(self, world: WorldState):
-        self._draw_grid()
+        # 在离屏图层绘制世界元素，之后按相机视口缩放/blit到屏幕
+        W, H = config.WINDOW_WIDTH, config.WINDOW_HEIGHT
+        # 使用带透明度的离屏层，避免缩放后产生条纹/形状异常
+        world_layer = pygame.Surface((W, H), pygame.SRCALPHA)
+        try:
+            world_layer = world_layer.convert_alpha()
+        except Exception:
+            pass
+        # 背景与网格绘制到离屏层（不透明背景）
+        world_layer.fill((*config.BG_COLOR, 255))
+        step = 40
+        for x in range(0, W, step):
+            pygame.draw.line(world_layer, (30, 30, 40), (x, 0), (x, H), 1)
+        for y in range(0, H, step):
+            pygame.draw.line(world_layer, (30, 30, 40), (0, y), (W, y), 1)
+        # 暂存屏幕引用，并将渲染目标切到离屏层
+        _real_screen = self.screen
+        self.screen = world_layer
         # 仅移除死亡的捕食者；零能量的猎物仍绘制（原地不动）
         alive = [e for e in world.entities if not (e.type == "hunter" and e.energy <= 0.0)]
 
@@ -799,16 +822,40 @@ class PygameRenderer:
                 e.target_id = best_tid
             nearest_map[e.id] = best_vec
 
-        # 实体
+        # 实体（绘制到离屏层）
         for e in alive:
             gaze = nearest_map.get(e.id, (math.cos(e.angle), math.sin(e.angle), e.fov_range))
             self._draw_entity(e, (gaze[0], gaze[1]), gaze[2])
-        # 选中实体的传感器条
+
+        # 恢复屏幕引用
+        self.screen = _real_screen
+
+        # 相机缩放与居中（以选中实体为中心）
+        target_scale = 1.0
+        sx = W // 2
+        sy = H // 2
+        if self.selected_id:
+            target_scale = float(getattr(config, "CAMERA_ZOOM_SELECTED", 1.8))
+            sel = next((e for e in alive if e.id == self.selected_id), None)
+            if sel:
+                sx, sy, _ = self._smooth.get(sel.id, (sel.x, sel.y, sel.angle))
+        # 平滑缩放
+        self._cam_zoom += (target_scale - self._cam_zoom) * self._cam_lerp
+        self._cam_zoom = clamp(self._cam_zoom, 1.0, 3.0)
+        view_w = int(W / max(0.001, self._cam_zoom))
+        view_h = int(H / max(0.001, self._cam_zoom))
+        left = int(clamp(sx - view_w // 2, 0, W - view_w))
+        top = int(clamp(sy - view_h // 2, 0, H - view_h))
+        view = pygame.Rect(left, top, view_w, view_h)
+        sub = world_layer.subsurface(view).copy()
+        scaled = pygame.transform.smoothscale(sub, (W, H))
+        self.screen.blit(scaled, (0, 0))
+
+        # 选中实体的传感器条与调试面板（叠加在相机后的屏幕上，不参与缩放）
         if self.selected_id:
             sel = next((x for x in alive if x.id == self.selected_id), None)
             if sel:
                 self._draw_sensor_strip(sel)
-        # 调试面板
         self._draw_debug_panel(world)
 
         # 叠加外部动作帧复现（在所有元素之上绘制）

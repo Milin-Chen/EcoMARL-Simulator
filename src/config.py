@@ -79,6 +79,10 @@ PANEL_MARGIN = 12
 PANEL_LINE_H = 20
 PANEL_ALPHA = 150  # 调试面板透明度，避免遮挡空间
 
+# 全局相机跟随与缩放（以选中实体为中心）
+CAMERA_ZOOM_SELECTED = 1.8  # 选中实体时的全局缩放
+CAMERA_LERP = 0.18          # 相机缩放与居中平滑插值系数
+
 # 眼睛参数（双眼）
 EYE_FORWARD_SCALE = 0.7  # 双眼沿运动方向的前移比例（相对半径）
 EYE_SEP_SCALE = 0.42     # 双眼左右分离比例（相对半径）
@@ -122,7 +126,7 @@ DROPLET_TRAIL_ENABLED = False  # 是否启用拖影分段效果（关闭以避�
 BODY_ALPHA = 180
 
 # 软体形变参数（果冻效果）
-SOFT_BODY_NODES = 24           # 半径网节点数（越多越细腻，注意性能）
+SOFT_BODY_NODES = 18           # 半径网节点数（越多越细腻，注意性能）
 SOFT_BODY_SPRING_K = 12.0      # 弹簧强度（收敛速度）
 SOFT_BODY_DAMPING = 8.0        # 阻尼（抑制震荡）
 SOFT_BODY_HEAD_COMPRESS = 0.5 # 头部压缩强度（随速度放大）

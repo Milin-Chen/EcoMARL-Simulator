@@ -184,3 +184,73 @@ python -m venv .venv
   - `SMOOTH_LERP`：插值速率；更平滑的轨迹可略降，代价是响应延迟。
   - `STRETCH_*` 与 `SOFT_BODY_*`：拉伸残影与果冻形变参数；“高速水滴形态”可提高 `STRETCH_SPEED_SCALE`、`SOFT_BODY_HEAD_COMPRESS`。
   - `DROPLET_*`：水滴尾迹形态与透明度；开启 `DROPLET_TRAIL_ENABLED` 可获得更强的速度感（有性能开销）。
+
+相机跟随与缩放（全局）
+- 功能概述：当在画面中点击选中一个实体时，前端将以该实体为中心进行“全局相机跟随与缩放”，使其运动更易观察；取消选中或实体不再存在时，相机平滑恢复到 1.0 缩放。
+- 相关配置（`src/config.py`）：
+  - `CAMERA_ZOOM_SELECTED`：选中实体时的全局缩放倍数（默认 `1.8`）。可按需要调小到 `1.3~1.5` 以提升性能。
+  - `CAMERA_LERP`：相机缩放与居中平滑插值系数（默认 `0.18`）。数值越大，跟随越快但可能更突兀；越小越平滑。
+- 行为说明：
+  - 相机以选中实体的平滑位置为视口中心，计算一个矩形子视图并缩放到窗口大小展示。
+  - 传感器条与调试面板等 UI 作为屏幕空间元素，不随相机缩放，以保证可读性。
+- 性能注意：
+  - 全局缩放会对离屏图层进行裁剪与缩放，缩放倍数越高开销越大；建议优先调整 `CAMERA_ZOOM_SELECTED` 与 `CAMERA_LERP` 取得平衡。
+  - 如需进一步优化，可将缩放倍数降低、减少软体节点数（`SOFT_BODY_NODES`），或改为坐标级相机（在渲染阶段直接缩放坐标与半径，避免图层像素缩放）。
+
+软体运动调试步骤
+- 前置设置：启动程序后按 `d` 打开调试面板；按 `r` 显示/隐藏射线，按 `n` 切换传感器条以辅助观察方向与命中。
+- 观察基线：在默认参数下记录形变与响应感觉（抖动、回弹、收敛速度）。
+- 参数焦点：
+  - 细腻度与稳定性：`SOFT_BODY_NODES`（节点数）、`SOFT_BODY_SPRING_K`（弹簧强度）、`SOFT_BODY_DAMPING`（阻尼）。节点越多越细腻，阻尼越大越稳。
+  - 速度耦合形变：`SOFT_BODY_HEAD_COMPRESS` 与 `SOFT_BODY_TAIL_ELONGATE` 控制“头压缩/尾拉伸”。增大它们可增强“水滴”效果。
+  - 微抖动：`SOFT_BODY_WOBBLE_BASE` 与 `SOFT_BODY_WOBBLE_ANG` 控制基础抖动与角速度增益；抖动过大时提高阻尼以抑制震荡。
+  - 平滑插值：`SMOOTH_LERP` 决定运动平滑度；增大更平滑但响应更慢。
+- 推荐流程：每次只调整一个参数→观察 5–10 秒→记录结果与可接受范围→必要时回退。
+
+吞咽与繁殖效果调试步骤
+- 事件准备：如需精准复现，请切换到 `FileJSONSource` 并在 `runtime/world.json` 中提供事件；也可在 `MockSource` 下仅观察前端视觉效果。
+- 捕食（吞咽带与能量脉冲）：
+  - 触发条件：能量增量超过 `FEED_ENERGY_DELTA_THRESHOLD` 或收到 `predation` 事件。
+  - 视觉参数：`SWALLOW_*` 控制吞咽带的长度、宽高与速度；`FEED_PULSE_*` 控制能量脉冲环的幅度、衰减与上限。
+  - 操作步骤：
+    1) 按 `d` 开启调试面板，关注 `Kills` 与能量变化；
+    2) 缓慢调高 `SWALLOW_SPEED` 与适度降低 `SWALLOW_DECAY` 观察带状高亮的长度与消退；
+    3) 调整 `FEED_PULSE_GAIN/DECAY/MAX`，确认脉冲环边缘清晰且能在 1–2 秒内淡出；
+    4) 选中捕食者，确认摄像机跟随与缩放下效果仍自然。
+  - 事件示例（最小片段）：
+```json
+{
+  "tick": 123,
+  "entities": [
+    {"id":"H-1","type":"hunter","x":300,"y":200,"angle":0.5,"energy":12.0},
+    {"id":"P-9","type":"prey","x":320,"y":210,"angle":-0.3,"energy":4.0}
+  ],
+  "events": [
+    {"type":"predation","predator_id":"H-1","prey_id":"P-9","energy_delta":1.2}
+  ]
+}
+```
+- 繁殖（平滑成长）：
+  - 触发条件：收到 `breed` 事件。
+  - 视觉参数：`SPAWN_MIN_SCALE`（子体初始比例）与 `SPAWN_GROW_RATE`（成长速率）。
+  - 操作步骤：
+    1) 提供 `breed` 事件，按 `d` 开启调试面板，观察 `Children` 与 `Gen` 展示；
+    2) 调整 `SPAWN_MIN_SCALE` 以控制起始大小，适度调 `SPAWN_GROW_RATE` 让成长在 0.8–2.0 秒间完成；
+    3) 确认子体在成长过程中具有连贯位置与角度（来自后端或前端平滑）。
+  - 事件示例（最小片段）：
+```json
+{
+  "tick": 456,
+  "entities": [
+    {"id":"P-2","type":"prey","x":420,"y":300,"angle":0.1,"energy":5.0}
+  ],
+  "events": [
+    {"type":"breed","parent_id":"P-2","child":{"id":"P-2-1","type":"prey","x":428,"y":304,"angle":0.1}}
+  ]
+}
+```
+
+验证清单
+- 选中实体后相机居中与缩放正常；UI 不随缩放失真。
+- 捕食时吞咽带沿运动方向移动，能量脉冲环平滑淡出；`Kills` 统计符合预期。
+- 繁殖时子体从 `SPAWN_MIN_SCALE` 平滑增长到目标半径，父子代数/子代计数展示正确（若后端未提供则使用前端兜底）。
