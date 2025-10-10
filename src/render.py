@@ -73,6 +73,9 @@ class PygameRenderer:
         self._stats: Dict[str, int] = {"predations": 0, "births": 0}
         # 每个捕食者的击杀计数
         self._predation_count: Dict[str, int] = {}
+        # 子代/父代兜底统计（后端未提供实体字段时基于事件推导）
+        self._gen_fallback: Dict[str, int] = {}
+        self._offspring_fallback: Dict[str, int] = {}
 
         # 性能与异常监控
         self._last_dt_sec: float = 0.0
@@ -214,7 +217,7 @@ class PygameRenderer:
         return float(deg), float(rng)
 
     def _draw_sensor_strip(self, e: EntityState):
-        """在屏幕右上角绘制传感器条，并在旁边绘制类别颜色说明。"""
+        """在屏幕右上角绘制“单一展示框”，包含类别说明文本与传感器条。"""
         if not self.show_sensors or not e.rays:
             return
         # 面板参数
@@ -222,18 +225,35 @@ class PygameRenderer:
         cell = 12
         gap = 4
         h = len(e.rays) * (cell + gap) + gap
-        p_w = cell + gap * 2
-        # 右上角定位
+        strip_w = cell + gap * 2
+        # 类别颜色说明（与条一起放入同一展示框内）
+        legend_items = [
+            ("same", config.SENSOR_SAME),
+            ("different", config.SENSOR_OTHER),
+            ("null", config.SENSOR_EMPTY),
+        ]
+        # 动态计算说明区域宽度：取最长标签的文本宽度
+        max_label_w = 0
+        try:
+            max_label_w = max(self.font.size(lbl)[0] for lbl, _ in legend_items)
+        except Exception:
+            max_label_w = self.font.size("different")[0]
+        legend_w = gap + cell + gap + max_label_w + gap  # 色块 + 间距 + 文本 + 边距
+        legend_h = gap * 2 + len(legend_items) * (cell + gap)
+        # 右上角定位：单一展示框包裹 legend + strip
         screen_w = self.screen.get_width()
-        x0 = screen_w - p_w - margin
+        container_gap = 8
+        container_w = legend_w + container_gap + strip_w
+        x0 = screen_w - container_w - margin
         y0 = margin
-        # 面板背景与边框
-        panel = pygame.Surface((p_w, h), pygame.SRCALPHA)
+        # 背景与整体边框（统一框）
+        panel = pygame.Surface((container_w, h), pygame.SRCALPHA)
         panel.fill((30, 32, 40, 120))
         self.screen.blit(panel, (x0, y0))
-        pygame.draw.rect(self.screen, (180, 180, 190), pygame.Rect(x0, y0, p_w, h), 1)
+        pygame.draw.rect(self.screen, (180, 180, 190), pygame.Rect(x0, y0, container_w, h), 1)
 
-        # 逐个 ray 绘制方块（纵向柱）
+        # 逐个 ray 绘制方块（纵向柱），位于展示框右侧
+        strip_x = x0 + legend_w + container_gap
         for i, r in enumerate(e.rays):
             color = config.SENSOR_EMPTY
             if r.hit_type == "hunter" and e.type == "hunter":
@@ -243,34 +263,23 @@ class PygameRenderer:
             elif r.hit_type in ("hunter", "prey"):
                 color = config.SENSOR_OTHER
             cy = y0 + gap + i * (cell + gap)
-            rect = pygame.Rect(x0 + gap, cy, cell, cell)
+            rect = pygame.Rect(strip_x + gap, cy, cell, cell)
             pygame.draw.rect(self.screen, color, rect)
             if r.hit_id and r.hit_id == e.target_id:
                 pygame.draw.rect(self.screen, (255, 255, 255), rect, 1)
-
-        # 类别颜色说明（靠面板左侧，避免越界）
-        legend_items = [
-            ("same", config.SENSOR_SAME),
-            ("different", config.SENSOR_OTHER),
-            ("null", config.SENSOR_EMPTY),
-        ]
-        # 计算说明框尺寸
-        lx = max(70, int(self.font.size("null")[0] + 30))
-        ly = gap * 2 + len(legend_items) * (cell + gap)
-        legend = pygame.Surface((lx, ly), pygame.SRCALPHA)
-        legend.fill((26, 28, 36, 120))
-        # 放在面板左侧
-        lg_x = x0 - lx - 8
+        # 绘制类别说明（位于展示框左侧内部），避免文字溢出
+        lg_x = x0 + gap
         lg_y = y0
-        self.screen.blit(legend, (lg_x, lg_y))
-        pygame.draw.rect(self.screen, (160, 160, 170), pygame.Rect(lg_x, lg_y, lx, ly), 1)
-        # 绘制每行说明
+        # 可选：为说明区域画轻微内边框
+        pygame.draw.rect(self.screen, (160, 160, 170), pygame.Rect(lg_x - 1, lg_y - 1, legend_w + 2, legend_h + 2), 1)
         for i, (label, color) in enumerate(legend_items):
             row_y = lg_y + gap + i * (cell + gap)
             swatch = pygame.Rect(lg_x + gap, row_y, cell, cell)
             pygame.draw.rect(self.screen, color, swatch)
             text_img = self.font.render(label, True, (220, 220, 228))
-            self.screen.blit(text_img, (lg_x + gap + cell + 6, row_y - 1))
+            # 文本起点：色块右侧加偏移，确保不出框
+            tx = lg_x + gap + cell + 6
+            self.screen.blit(text_img, (tx, row_y - 1))
 
     def _fmt_age(self, age_seconds: float) -> str:
         # 将秒数格式化为 mm:ss.ss
@@ -470,6 +479,16 @@ class PygameRenderer:
                     # 让新子体从小到大长成（即便后端未提供spawn_progress）
                     self._spawn_override[cid] = 0.0
                     self._stats["births"] = self._stats.get("births", 0) + 1
+                # 兜底父代/子代统计：累加父亲的子代数，推导子代代数
+                parent_id = getattr(ev, "parent_id", None)
+                if not parent_id and isinstance(child, dict):
+                    parent_id = child.get("parent_id")
+                if parent_id:
+                    self._offspring_fallback[parent_id] = self._offspring_fallback.get(parent_id, 0) + 1
+                    if cid:
+                        parent = next((e for e in world.entities if e.id == parent_id), None)
+                        if parent is not None:
+                            self._gen_fallback[cid] = max(self._gen_fallback.get(cid, 0), int(parent.generation) + 1)
 
     def _draw_entity(self, e: EntityState, gaze_dir: Tuple[float, float], gaze_dist: float):
         x, y, a = self._lerp_state(e)
@@ -627,8 +646,10 @@ class PygameRenderer:
             if sel.type == "hunter":
                 write(5, f"Energy: {sel.energy:.1f} / split {sel.split_energy:.1f}")
                 write(6, f"Speed: {sel.speed:.1f} | AngVel: {sel.angular_velocity:.2f}")
-                write(7, f"alive_time: {self._fmt_age(sel.age)} | Gen: {sel.generation}")
-                write(8, f"Children: {sel.offspring_count}")
+                gen = max(int(sel.generation), int(self._gen_fallback.get(sel.id, int(sel.generation))))
+                children = max(int(sel.offspring_count), int(self._offspring_fallback.get(sel.id, int(sel.offspring_count))))
+                write(7, f"alive_time: {self._fmt_age(sel.age)} | Gen: {gen}")
+                write(8, f"Children: {children}")
                 deg, rng = self._fov_params(sel)
                 write(9, f"FOV: {deg:.1f} deg / {rng:.1f} px")
                 kills = self._predation_count.get(sel.id, 0)
@@ -637,8 +658,10 @@ class PygameRenderer:
             else:
                 write(5, f"Energy: {sel.energy:.1f} / split {sel.split_energy:.1f}")
                 write(6, f"Speed: {sel.speed:.1f}")
-                write(7, f"alive_time: {self._fmt_age(sel.age)} | Gen: {sel.generation}")
-                write(8, f"Children: {sel.offspring_count}")
+                gen = max(int(sel.generation), int(self._gen_fallback.get(sel.id, int(sel.generation))))
+                children = max(int(sel.offspring_count), int(self._offspring_fallback.get(sel.id, int(sel.offspring_count))))
+                write(7, f"alive_time: {self._fmt_age(sel.age)} | Gen: {gen}")
+                write(8, f"Children: {children}")
                 deg, rng = self._fov_params(sel)
                 write(9, f"FOV: {deg:.1f} deg / {rng:.1f} px")
 
@@ -733,6 +756,13 @@ class PygameRenderer:
         for cid in list(self._spawn_override.keys()):
             if cid not in existing_ids:
                 self._spawn_override.pop(cid, None)
+        # 清理兜底统计中已不在场的实体，避免内存增长
+        for k in list(self._gen_fallback.keys()):
+            if k not in existing_ids:
+                self._gen_fallback.pop(k, None)
+        for k in list(self._offspring_fallback.keys()):
+            if k not in existing_ids:
+                self._offspring_fallback.pop(k, None)
 
         # 视线与目标映射（优先使用射线命中；否则退化为最近实体）
         nearest_map: Dict[str, Tuple[float, float, float]] = {}
