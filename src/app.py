@@ -4,10 +4,6 @@
 
 from __future__ import annotations
 
-import sys
-
-sys.path.insert(0, "/home/claude")
-
 from datasource import MockSource, FileJSONSource
 from render import launch_frontend, PygameRenderer
 
