@@ -7,7 +7,7 @@ BG_COLOR = (20, 22, 28)
 GRID_COLOR = (36, 40, 52)
 
 HUNTER_COLOR = (220, 64, 64)  # 红色
-PREY_COLOR = (64, 200, 96)    # 绿色
+PREY_COLOR = (64, 200, 96)  # 绿色
 EYE_WHITE = (240, 240, 240)
 EYE_PUPIL = (0, 0, 0)
 FOV_COLOR = (180, 180, 180)
@@ -18,9 +18,9 @@ ENERGY_BAR_BG = (60, 60, 60)
 ENERGY_BAR_FILL = (255, 200, 64)
 
 # 传感器条颜色
-SENSOR_SAME = (255, 140, 140)    # 同类命中（更暖）
-SENSOR_OTHER = (160, 180, 255)   # 异类命中（更冷）
-SENSOR_EMPTY = (90, 90, 100)     # 未命中/未知
+SENSOR_SAME = (255, 140, 140)  # 同类命中（更暖）
+SENSOR_OTHER = (160, 180, 255)  # 异类命中（更冷）
+SENSOR_EMPTY = (90, 90, 100)  # 未命中/未知
 
 # 捕食闪光效果
 FEED_FLASH = (255, 120, 120)
@@ -28,12 +28,12 @@ FEED_FLASH_ALPHA = 140
 FEED_ENERGY_DELTA_THRESHOLD = 0.5
 
 # 捕食能量脉冲（平滑效果）
-FEED_PULSE_GAIN = 0.8          # 能量增量对脉冲幅度的影响系数
-FEED_PULSE_DECAY = 2.4         # 每秒衰减幅度
-FEED_PULSE_MAX = 1.0           # 幅度上限
-FEED_RING_MIN_SCALE = 1.2      # 脉冲环最小半径比例（相对实体半径）
-FEED_RING_MAX_SCALE = 1.8      # 脉冲环最大半径比例
-FEED_RING_THICKNESS = 4        # 脉冲环线宽
+FEED_PULSE_GAIN = 0.8  # 能量增量对脉冲幅度的影响系数
+FEED_PULSE_DECAY = 2.4  # 每秒衰减幅度
+FEED_PULSE_MAX = 1.0  # 幅度上限
+FEED_RING_MIN_SCALE = 1.2  # 脉冲环最小半径比例（相对实体半径）
+FEED_RING_MAX_SCALE = 1.8  # 脉冲环最大半径比例
+FEED_RING_THICKNESS = 4  # 脉冲环线宽
 
 # FOV / 射线
 DEFAULT_FOV_DEG_HUNTER = 40.0
@@ -65,12 +65,12 @@ PUPIL_MIN = 0.42
 PUPIL_MAX = 1.12
 
 # 椭圆拖影参数
-STRETCH_SPEED_SCALE = 0.18   # 速度对椭圆拉伸的影响系数
-STRETCH_MAX_FACTOR = 0.8     # 拉伸上限（相对半径）
-TRAIL_ELLIPSES = 4           # 残影椭圆个数（包含主体时另外绘制）
-TRAIL_OFFSET_SCALE = 0.55    # 每个残影的偏移比例
-TRAIL_ALPHA_BASE = 95        # 第一层残影透明度基准
-TRAIL_ALPHA_DECAY = 0.5      # 每层递减系数
+STRETCH_SPEED_SCALE = 0.18  # 速度对椭圆拉伸的影响系数
+STRETCH_MAX_FACTOR = 0.8  # 拉伸上限（相对半径）
+TRAIL_ELLIPSES = 4  # 残影椭圆个数（包含主体时另外绘制）
+TRAIL_OFFSET_SCALE = 0.55  # 每个残影的偏移比例
+TRAIL_ALPHA_BASE = 95  # 第一层残影透明度基准
+TRAIL_ALPHA_DECAY = 0.5  # 每层递减系数
 
 # 文本与调试
 FONT_SIZE = 16
@@ -81,11 +81,11 @@ PANEL_ALPHA = 150  # 调试面板透明度，避免遮挡空间
 
 # 全局相机跟随与缩放（以选中实体为中心）
 CAMERA_ZOOM_SELECTED = 1.8  # 选中实体时的全局缩放
-CAMERA_LERP = 0.18          # 相机缩放与居中平滑插值系数
+CAMERA_LERP = 0.18  # 相机缩放与居中平滑插值系数
 
 # 眼睛参数（双眼）
 EYE_FORWARD_SCALE = 0.7  # 双眼沿运动方向的前移比例（相对半径）
-EYE_SEP_SCALE = 0.42     # 双眼左右分离比例（相对半径）
+EYE_SEP_SCALE = 0.42  # 双眼左右分离比例（相对半径）
 
 # 其他
 PI = math.pi
@@ -93,8 +93,8 @@ TAU = 2 * math.pi
 
 # 实体总量与平滑分裂参数
 MAX_ENTITIES = 120
-SPAWN_GROW_RATE = 0.7     # 分裂后子体半径增长速率（每秒0-1）
-SPAWN_MIN_SCALE = 0.45    # 子体初始半径比例（相对目标半径）
+SPAWN_GROW_RATE = 0.7  # 分裂后子体半径增长速率（每秒0-1）
+SPAWN_MIN_SCALE = 0.45  # 子体初始半径比例（相对目标半径）
 
 # 预留持久化/存活参数（前端占位）
 PERSIST_ENABLED = False
@@ -104,32 +104,91 @@ AUTO_SAVE_INTERVAL = 10.0  # 秒
 # 繁殖冷却（按类型）
 BREED_CD_PREY = 2.0
 BREED_CD_HUNTER = 12.0
-# 吞咽动画（从“嘴巴到尾巴”的平滑带状高亮）
+
+# 吞咽动画（从"嘴巴到尾巴"的平滑带状高亮）
 SWALLOW_COLOR = (255, 200, 180)
 SWALLOW_ALPHA = 170
-SWALLOW_SPEED = 1.6           # 进度每秒减少（1.0 -> 0.0），数值越大越快
-SWALLOW_DECAY = 1.2           # 幅度每秒衰减
-SWALLOW_LENGTH_SCALE = 2.2    # 路径长度，相对半径（越大越长）
-SWALLOW_SIZE_W_SCALE = 0.9    # 吞咽带宽度（沿运动方向），相对半径
-SWALLOW_SIZE_H_SCALE = 0.55   # 吞咽带高度（垂直方向），相对半径
+SWALLOW_SPEED = 1.6  # 进度每秒减少（1.0 -> 0.0），数值越大越快
+SWALLOW_DECAY = 1.2  # 幅度每秒衰减
+SWALLOW_LENGTH_SCALE = 2.2  # 路径长度，相对半径（越大越长）
+SWALLOW_SIZE_W_SCALE = 0.9  # 吞咽带宽度（沿运动方向），相对半径
+SWALLOW_SIZE_H_SCALE = 0.55  # 吞咽带高度（垂直方向），相对半径
+
 # 速度驱动的水滴形态参数
-DROPLET_MIN_SPEED = 0.35       # 低于该速度不做拉伸，保持圆形
-DROPLET_SPEED_REF = 3.0        # 正常化参考速度（越大拉伸越慢）
-DROPLET_MAX_LEN_SCALE = 1   # 尾部长度比例（相对半径）
-DROPLET_HEAD_WIDTH_SCALE = 3 # 头部宽度比例（相对半径）
-DROPLET_TAIL_WIDTH_SCALE = 0.32 # 尾部最窄半径比例（相对半径）
-DROPLET_ALPHA = 160            # 水滴尾部透明度基准
-DROPLET_DISCS = 7              # 水滴尾部圆盘数量（越多越平滑）
-DROPLET_TRAIL_ENABLED = False  # 是否启用拖影分段效果（关闭以避免“分离感”）
+DROPLET_MIN_SPEED = 0.35  # 低于该速度不做拉伸，保持圆形
+DROPLET_SPEED_REF = 3.0  # 正常化参考速度（越大拉伸越慢）
+DROPLET_MAX_LEN_SCALE = 1  # 尾部长度比例（相对半径）
+DROPLET_HEAD_WIDTH_SCALE = 3  # 头部宽度比例（相对半径）
+DROPLET_TAIL_WIDTH_SCALE = 0.32  # 尾部最窄半径比例（相对半径）
+DROPLET_ALPHA = 160  # 水滴尾部透明度基准
+DROPLET_DISCS = 7  # 水滴尾部圆盘数量（越多越平滑）
+DROPLET_TRAIL_ENABLED = False  # 是否启用拖影分段效果（关闭以避免"分离感"）
 
 # 主体透明度（软体/椭圆主体均使用）
 BODY_ALPHA = 180
 
 # 软体形变参数（果冻效果）
-SOFT_BODY_NODES = 18           # 半径网节点数（越多越细腻，注意性能）
-SOFT_BODY_SPRING_K = 12.0      # 弹簧强度（收敛速度）
-SOFT_BODY_DAMPING = 8.0        # 阻尼（抑制震荡）
-SOFT_BODY_HEAD_COMPRESS = 0.5 # 头部压缩强度（随速度放大）
-SOFT_BODY_TAIL_ELONGATE = 0.18 # 尾部拉伸强度（随速度放大）
-SOFT_BODY_WOBBLE_BASE = 0.2   # 基础抖动幅度（相对半径）
-SOFT_BODY_WOBBLE_ANG = 0.14    # 角速度抖动增益（相对半径/|ang_vel|）
+SOFT_BODY_NODES = 18  # 半径网节点数（越多越细腻，注意性能）
+SOFT_BODY_SPRING_K = 12.0  # 弹簧强度（收敛速度）
+SOFT_BODY_DAMPING = 8.0  # 阻尼（抑制震荡）
+SOFT_BODY_HEAD_COMPRESS = 0.5  # 头部压缩强度（随速度放大）
+SOFT_BODY_TAIL_ELONGATE = 0.18  # 尾部拉伸强度（随速度放大）
+SOFT_BODY_WOBBLE_BASE = 0.2  # 基础抖动幅度（相对半径）
+SOFT_BODY_WOBBLE_ANG = 0.14  # 角速度抖动增益（相对半径/|ang_vel|）
+
+# ============================================================
+# 🔥 能量系统配置（新增）
+# ============================================================
+
+# --- 基础代谢 ---
+ENERGY_BASE_METABOLISM_HUNTER = 0.8  # 猎人基础代谢（能量/秒）
+ENERGY_BASE_METABOLISM_PREY = 0.15  # 猎物基础代谢（能量/秒）
+
+# --- 猎物能量生产（生产者模式）---
+ENERGY_PRODUCTION_PREY = 1.2  # 猎物能量生产速率（能量/秒）
+ENERGY_MAX_PREY = 100.0  # 猎物最大能量上限
+ENERGY_PRODUCTION_EFFICIENCY = 1.0  # 生产效率系数（可根据环境调整）
+
+# --- 运动能量消耗 ---
+ENERGY_SPEED_REFERENCE = 40.0  # 参考速度（用于归一化）
+ENERGY_MOVEMENT_COST = 0.05  # 运动能量系数（能量/秒，基于归一化速度平方）
+# 实际消耗 = COST × (speed/ref)²
+
+# --- 转向能量消耗 ---
+ENERGY_TURNING_COST = 0.08  # 转向能量系数（能量/秒，基于归一化角速度）
+# 实际消耗 = COST × |ang_vel|/π
+
+# --- 捕食奖励 ---
+ENERGY_PREDATION_GAIN = 50.0  # 捕食成功获得的能量
+ENERGY_MAX_HUNTER = 160.0  # 猎人最大能量上限
+DIGESTION_DURATION = 3.5  # 消化时间（秒，期间无法再次捕食）
+
+# --- 捕食半径配置 ---
+PREDATION_BASE_RATIO = 0.05  # 基础捕食半径（相对视野范围的比例）
+PREDATION_SIZE_BONUS = 0.15  # 体型加成系数（每单位体型增长增加的比例）
+PREDATION_SPEED_BONUS = 0.05  # 速度加成系数（高速冲刺时的捕食范围加成）
+PREDATION_MIN_RADIUS = 30.0  # 最小捕食半径（像素）
+PREDATION_MAX_RADIUS = 100.0  # 最大捕食半径（像素）
+
+# ============================================================
+# 能量消耗示例计算（用于文档参考）
+# ============================================================
+#
+# 假设猎人参数：
+#   - 半径: 10 (DEFAULT_RADIUS)
+#   - 速度: 40 (ENERGY_SPEED_REFERENCE)
+#   - 角速度: π/2 (90度/秒转向)
+#
+# 每秒能量消耗：
+#   基础代谢: 0.8 × (10/10)² = 0.8
+#   运动消耗: 0.05 × (40/40)² = 0.05
+#   转向消耗: 0.08 × (π/2)/π = 0.04
+#   总计: 0.8 + 0.05 + 0.04 = 0.89 能量/秒
+#
+# 捕食半径计算：
+#   视野范围: 260
+#   基础半径: 260 × 0.20 = 52
+#   体型加成: 52 × (1 + 0 × 0.15) = 52  (默认体型无加成)
+#   速度加成: 52 × (1 + 1.0 × 0.05) = 54.6  (按参考速度)
+#   最终半径: 54.6 像素
+# ============================================================

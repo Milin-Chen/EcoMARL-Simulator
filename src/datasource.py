@@ -25,6 +25,15 @@ class MockSource(DataSource):
         self.tick = 0
         self.entities: List[EntityState] = []
 
+        # 全局唯一ID计数器（解决并行化ID冲突问题）
+        self._entity_counter = 0
+        self._counter_lock = None  # 如果使用并行，需要线程锁
+
+        if use_parallel:
+            import threading
+
+            self._counter_lock = threading.Lock()
+
         # 初始化并行渲染器
         self.use_parallel = use_parallel
         if use_parallel:
@@ -61,8 +70,12 @@ class MockSource(DataSource):
                 if etype == "hunter"
                 else config.DEFAULT_FOV_RANGE_PREY
             )
+
+            # 使用统一的ID生成器（确保初始实体也使用新格式）
+            entity_id = self._get_next_id(etype)
+
             return EntityState(
-                id=f"{etype[0]}_{idx}",
+                id=entity_id,
                 type=etype,
                 x=x,
                 y=y,
@@ -84,10 +97,53 @@ class MockSource(DataSource):
         for i in range(n_prey):
             self.entities.append(spawn_entity(i, "prey"))
 
+    def _get_next_id(self, etype: str) -> str:
+        """
+        生成线程安全的唯一实体ID
+
+        Args:
+            etype: 实体类型 ('hunter' 或 'prey')
+
+        Returns:
+            唯一的实体ID字符串
+        """
+        if self._counter_lock:
+            with self._counter_lock:
+                self._entity_counter += 1
+                entity_id = self._entity_counter
+        else:
+            self._entity_counter += 1
+            entity_id = self._entity_counter
+
+        # 格式: 类型前缀_计数器_时间戳后4位（用于调试）
+        timestamp_suffix = str(int(time.time() * 10000) % 10000).zfill(4)
+        return f"{etype[0]}_{entity_id:06d}_{timestamp_suffix}"
+
+    def _check_and_fix_duplicate_ids(self):
+        """
+        检测并修复重复的实体ID
+        这是一个防御性措施，确保即使有bug也不会出现重复ID
+        """
+        seen_ids = set()
+        duplicates = []
+
+        for entity in self.entities:
+            if entity.id in seen_ids:
+                duplicates.append(entity)
+                print(f"⚠️ 检测到重复ID: {entity.id} (类型: {entity.type})")
+            else:
+                seen_ids.add(entity.id)
+
+        # 为重复的实体重新分配ID
+        for entity in duplicates:
+            old_id = entity.id
+            entity.id = self._get_next_id(entity.type)
+            print(f"✓ 修复重复ID: {old_id} → {entity.id}")
+
     def _spawn_child(self, parent: EntityState, etype: Optional[str] = None):
         # 简化分裂：幅度更小，尽量保持父体的行为模式
         etype = etype or parent.type
-        nid = f"{etype[0]}_{int(time.time()*1000)}_{random.randint(10,99)}"
+        nid = self._get_next_id(etype)  # 使用线程安全的ID生成器
         angle = parent.angle + random.uniform(-0.25, 0.25)
         speed = max(6.0, parent.speed + random.uniform(-2.0, 2.0))
         r = max(6.0, parent.radius + random.uniform(-0.6, 0.6))
@@ -302,6 +358,9 @@ class MockSource(DataSource):
         self.tick += 1
         dt = 1 / 60.0
         self._update_motion(dt)
+
+        # 检查并修复重复ID问题（防御性编程）
+        self._check_and_fix_duplicate_ids()
 
         # 使用并行或串行射线检测
         if self.use_parallel and self.renderer:
