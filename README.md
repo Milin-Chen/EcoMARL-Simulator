@@ -26,8 +26,8 @@ EcoMARL-Simulator 是一个高性能的生态系统模拟器，使用**多智能
 ![Demo](assets/demo.gif) *(如果有的话)*
 
 **主要行为**:
-- 🔴 猎人（红色）：追击猎物，消耗能量，捕获后补充能量
-- 🔵 猎物（蓝色）：逃避猎人，能量耗尽死亡
+- 猎人（红色）：追击猎物，消耗能量，捕获后补充能量
+- 猎物（绿色）：逃避猎人，能量耗尽死亡
 - 👁️ 视野系统：智能体只能感知视野范围内的目标
 - ⚡ 能量机制：运动消耗能量，猎人捕获猎物补充能量
 
@@ -57,22 +57,22 @@ python main.py
 
 ### 📖 快速入门
 
-| 文档 | 描述 | 适用人群 |
-|------|------|---------|
-| [QUICK_START.md](QUICK_START.md) | 5分钟快速上手 | 所有用户 |
-| [docs/modules/CORE_MODULES.md](docs/modules/CORE_MODULES.md) | 核心模块介绍 | 开发者 |
-| [docs/modules/TRAINING_SYSTEM.md](docs/modules/TRAINING_SYSTEM.md) | 训练系统详解 | 研究者 |
+| 文档                                                               | 描述          | 适用人群 |
+| ------------------------------------------------------------------ | ------------- | -------- |
+| [QUICK_START.md](QUICK_START.md)                                   | 5分钟快速上手 | 所有用户 |
+| [docs/modules/CORE_MODULES.md](docs/modules/CORE_MODULES.md)       | 核心模块介绍  | 开发者   |
+| [docs/modules/TRAINING_SYSTEM.md](docs/modules/TRAINING_SYSTEM.md) | 训练系统详解  | 研究者   |
 
 ### 🔬 功能模块
 
-| 模块 | 文档 | 功能 |
-|------|------|------|
-| **物理引擎** | [docs/modules/CORE_MODULES.md](docs/modules/CORE_MODULES.md) | 世界模拟、运动物理、碰撞检测 |
-| **强化学习** | [docs/modules/RL_ENVIRONMENT.md](docs/modules/RL_ENVIRONMENT.md) | Gym环境、奖励函数、观测空间 |
-| **课程学习** | [docs/modules/TRAINING_SYSTEM.md](docs/modules/TRAINING_SYSTEM.md) | 4阶段训练、HPO优化 |
-| **可视化** | [docs/modules/VISUALIZATION.md](docs/modules/VISUALIZATION.md) | PyGame渲染、交互控制 |
-| **性能优化** | [docs/modules/PARALLEL_OPTIMIZATION.md](docs/modules/PARALLEL_OPTIMIZATION.md) | QuadTree、多线程 |
-| **配置系统** | [docs/modules/CONFIGURATION.md](docs/modules/CONFIGURATION.md) | 环境、智能体、训练参数 |
+| 模块         | 文档                                                                           | 功能                         |
+| ------------ | ------------------------------------------------------------------------------ | ---------------------------- |
+| **物理引擎** | [docs/modules/CORE_MODULES.md](docs/modules/CORE_MODULES.md)                   | 世界模拟、运动物理、碰撞检测 |
+| **强化学习** | [docs/modules/RL_ENVIRONMENT.md](docs/modules/RL_ENVIRONMENT.md)               | Gym环境、奖励函数、观测空间  |
+| **课程学习** | [docs/modules/TRAINING_SYSTEM.md](docs/modules/TRAINING_SYSTEM.md)             | 4阶段训练、HPO优化           |
+| **可视化**   | [docs/modules/VISUALIZATION.md](docs/modules/VISUALIZATION.md)                 | PyGame渲染、交互控制         |
+| **性能优化** | [docs/modules/PARALLEL_OPTIMIZATION.md](docs/modules/PARALLEL_OPTIMIZATION.md) | QuadTree、多线程             |
+| **配置系统** | [docs/modules/CONFIGURATION.md](docs/modules/CONFIGURATION.md)                 | 环境、智能体、训练参数       |
 
 ---
 
@@ -114,14 +114,14 @@ python main.py
 
 ### 核心组件
 
-| 组件 | 路径 | 职责 |
-|------|------|------|
-| **配置系统** | `config/` | 环境、智能体、训练、渲染参数 |
-| **物理引擎** | `core/` | 世界模拟、运动、传感器、能量 |
-| **数据模型** | `models/` | 实体状态、世界状态 |
-| **RL环境** | `rl_env/` | Gym环境、奖励、观测、训练 |
-| **可视化** | `frontend/` | PyGame渲染器 |
-| **并行优化** | `parallel/` | QuadTree、多线程 |
+| 组件         | 路径        | 职责                         |
+| ------------ | ----------- | ---------------------------- |
+| **配置系统** | `config/`   | 环境、智能体、训练、渲染参数 |
+| **物理引擎** | `core/`     | 世界模拟、运动、传感器、能量 |
+| **数据模型** | `models/`   | 实体状态、世界状态           |
+| **RL环境**   | `rl_env/`   | Gym环境、奖励、观测、训练    |
+| **可视化**   | `frontend/` | PyGame渲染器                 |
+| **并行优化** | `parallel/` | QuadTree、多线程             |
 
 ---
 
@@ -187,12 +187,12 @@ print(stage1.total_timesteps)  # 50000
 
 ### 配置文件
 
-| 文件 | 内容 | 示例参数 |
-|------|------|---------|
-| `env_config.py` | 环境参数 | 世界大小、最大实体数、能量系统 |
-| `agent_config.py` | 智能体参数 | 速度、视野、转向速度 |
-| `render_config.py` | 渲染参数 | FPS、颜色、调试选项 |
-| `training_config.py` | 训练参数 | 学习率、批次大小、训练步数 |
+| 文件                 | 内容       | 示例参数                       |
+| -------------------- | ---------- | ------------------------------ |
+| `env_config.py`      | 环境参数   | 世界大小、最大实体数、能量系统 |
+| `agent_config.py`    | 智能体参数 | 速度、视野、转向速度           |
+| `render_config.py`   | 渲染参数   | FPS、颜色、调试选项            |
+| `training_config.py` | 训练参数   | 学习率、批次大小、训练步数     |
 
 **详细配置说明**: [docs/modules/CONFIGURATION.md](docs/modules/CONFIGURATION.md)
 
@@ -205,10 +205,10 @@ print(stage1.total_timesteps)  # 50000
 **性能对比**:
 
 | 实体数 | 线性查找 | QuadTree | 提升 |
-|-------|---------|----------|------|
-| 20    | 400次   | ~86次    | 5x   |
-| 100   | 10,000次| ~664次   | 15x  |
-| 200   | 40,000次| ~1,529次 | 26x  |
+| ------ | -------- | -------- | ---- |
+| 20     | 400次    | ~86次    | 5x   |
+| 100    | 10,000次 | ~664次   | 15x  |
+| 200    | 40,000次 | ~1,529次 | 26x  |
 
 **启用方式**:
 ```bash
@@ -395,32 +395,15 @@ EcoMARL-Simulator/
 
 ## 🔬 技术栈
 
-| 类别 | 技术 | 用途 |
-|------|------|------|
-| **语言** | Python 3.8+ | 主要开发语言 |
-| **深度学习** | PyTorch 2.0+ | 神经网络 |
-| **强化学习** | Stable-Baselines3 | PPO算法 |
-| **可视化** | PyGame 2.0+ | 实时渲染 |
-| **数值计算** | NumPy | 数组运算 |
-| **并行** | multiprocessing | 多线程 |
-| **空间索引** | QuadTree (自实现) | 性能优化 |
-
----
-
-## 🤝 贡献指南
-
-欢迎贡献！请遵循以下步骤：
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
-**开发规范**:
-- 遵循PEP 8代码风格
-- 添加单元测试
-- 更新相关文档
+| 类别         | 技术              | 用途         |
+| ------------ | ----------------- | ------------ |
+| **语言**     | Python 3.8+       | 主要开发语言 |
+| **深度学习** | PyTorch 2.0+      | 神经网络     |
+| **强化学习** | Stable-Baselines3 | PPO算法      |
+| **可视化**   | PyGame 2.0+       | 实时渲染     |
+| **数值计算** | NumPy             | 数组运算     |
+| **并行**     | multiprocessing   | 多线程       |
+| **空间索引** | QuadTree (自实现) | 性能优化     |
 
 ---
 
@@ -438,12 +421,6 @@ EcoMARL-Simulator/
 
 ---
 
-## 📧 联系方式
-
-- **项目链接**: [GitHub Repository](https://github.com/yourusername/EcoMARL-Simulator)
-- **问题反馈**: [Issues](https://github.com/yourusername/EcoMARL-Simulator/issues)
-
----
 
 ## 🚀 立即开始
 

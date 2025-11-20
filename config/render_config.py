@@ -61,7 +61,7 @@ class RenderConfig:
     EYE_SEP_SCALE: float = 0.42
 
     # 软体形变
-    SOFT_BODY_NODES: int = 8  # 优化: 从18降至8，显著提升性能 (~10-15 FPS)
+    SOFT_BODY_NODES: int = 18  # 优化: 从18降至8，显著提升性能 (~10-15 FPS)
     SOFT_BODY_SPRING_K: float = 12.0
     SOFT_BODY_DAMPING: float = 8.0
     SOFT_BODY_HEAD_COMPRESS: float = 0.5
