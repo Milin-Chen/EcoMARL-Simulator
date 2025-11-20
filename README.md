@@ -1,256 +1,469 @@
-智能生态模拟器前端（PyGame）
+# EcoMARL-Simulator
 
-项目简介
-- 使用 Python + PyGame 在连续 2D 空间渲染生态系统：捕食者（红色）与猎物（绿色）。
-- 支持平滑运动、FOV 射线、眼睛/瞳孔变化，以及事件驱动的吞咽带与喂食脉冲、繁殖与成长特效。
-- 与后端通过 JSON 帧对接（文件轮询或 WebSocket 占位），也可使用内置 Mock 源快速演示。
+**基于多智能体强化学习的捕食者-猎物生态系统模拟器**
 
-快速开始
-- 一键运行（推荐）：
-  - `bash scripts/run.sh`
-- 手动运行：
-  - `python3 -m venv .venv && ./.venv/bin/python -m pip install -r requirements.txt`
-  - `./.venv/bin/python src/app.py`
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-目录结构
-- `src/app.py`：应用入口，选择数据源并启动渲染循环。
-- `src/render.py`：渲染器，实现事件驱动效果、调试面板、交互与绘制。
-- `src/models.py`：世界与实体数据结构定义，含事件 `Event` 与解析 `WorldState.from_dict`。
-- `src/datasource.py`：数据源抽象，内置 `MockSource` 与 `FileJSONSource`。
-- `src/config.py`：全局渲染配置（颜色、尺寸、FOV、动画参数等）。
-- `scripts/run.sh`：自动创建虚拟环境、安装依赖并运行。
-- `requirements.txt`：依赖列表。
+---
 
-数据源与事件对接
-- 模式一：文件 JSON（推荐起步）
-  - 后端每帧写入 `runtime/world.json`；前端使用 `FileJSONSource` 轮询读取并渲染。
-- 模式二：WebSocket（占位）
-  - 预留地址：`ws://localhost:8765`（可按需实现与替换）。
+## 🎯 项目简介
 
-顶层 JSON 结构（每帧）
-```json
-{
-  "tick": 123,
-  "entities": [
-    {
-      "id": "H-1",
-      "type": "hunter",  
-      "x": 100.0, "y": 200.0,
-      "angle": 1.57,
-      "speed": 32.0,
-      "angular_velocity": 0.1,
-      "radius": 8.0,
-      "energy": 85.0,
-      "digestion": 0.0,
-      "age": 12.3,
-      "generation": 2,
-      "offspring_count": 1,
-      "fov_deg": 40.0,
-      "fov_range": 220.0,
-      "rays": [
-        {"angle": 1.2, "distance": 80.0, "hit_type": "prey", "hit_id": "P-7"}
-      ],
-      "spawn_progress": 1.0
-    }
-  ],
-  "events": [
-    {"type":"predation","actor_id":"H-17","target_id":"P-201","energy_gain":18.5},
-    {"type":"breed","parent_id":"H-8","child":{"id":"H-8-1","type":"hunter","x":420,"y":260,"angle":0.1,"radius":9}}
-  ],
-  "counters": {
-    "predations": 12,
-    "births": 3,
-    "predator_kills": {"H-17": 4, "H-8": 2}
-  }
-}
+EcoMARL-Simulator 是一个高性能的生态系统模拟器，使用**多智能体强化学习(MARL)**技术模拟捕食者-猎物之间的复杂交互和演化行为。
+
+### ✨ 核心特性
+
+- 🎓 **课程学习训练**: 4阶段渐进式训练系统，从简单到复杂
+- 🔧 **HPO超参数优化**: 自适应奖励缩放、对抗平衡、进度追踪
+- 🎮 **实时可视化**: PyGame交互式渲染，支持智能体视角切换
+- ⚡ **并行加速**: QuadTree空间索引 + 多线程优化，~15倍性能提升
+- 📊 **完整生态**: 能量系统、视野限制、追逐/逃跑行为
+- 🧪 **模块化设计**: 前后端分离，易于扩展和测试
+
+### 🎬 演示效果
+
+![Demo](assets/demo.gif) *(如果有的话)*
+
+**主要行为**:
+- 🔴 猎人（红色）：追击猎物，消耗能量，捕获后补充能量
+- 🔵 猎物（蓝色）：逃避猎人，能量耗尽死亡
+- 👁️ 视野系统：智能体只能感知视野范围内的目标
+- ⚡ 能量机制：运动消耗能量，猎人捕获猎物补充能量
+
+---
+
+## ⚡ 快速开始
+
+### 最快5分钟体验
+
+```bash
+# 1. 克隆项目
+git clone <repository-url>
+cd EcoMARL-Simulator
+
+# 2. 安装依赖
+pip install numpy pygame torch stable-baselines3
+
+# 3. 运行可视化
+python main.py
 ```
 
-事件字段说明
-- `predation`（捕食）：
-  - `type`: 固定为 `"predation"`
-  - `actor_id`: 捕食者 id（必填，前端用于触发吞咽/脉冲与击杀计数）
-  - `target_id`: 猎物 id（推荐传，便于调试与记录）
-  - `energy_gain`: 本次进食获得的能量（浮点，可选；影响吞咽带与喂食脉冲幅度）
-- `breed`（繁殖）：
-  - `type`: 固定为 `"breed"`
-  - `parent_id`: 父体 id（可选；也可在 `child.parent_id` 中提供，前端都能识别）
-  - `child`: 子体最小描述（建议包含 `id/type/x/y/angle/radius`；前端将从 0→1 平滑成长）
+**完整安装和使用指南**: [QUICK_START.md](QUICK_START.md)
 
-计数器字段说明（可选）
-- `predations`: 总捕食次数。
-- `births`: 总出生数。
-- `predator_kills`: 每个捕食者的击杀数映射（前端调试面板展示 `Kills`）。
+---
 
-兜底统计（前端侧）
-- 击杀数兜底：当前端未从 `counters.predator_kills` 获取到权威值时，前端按 `predation` 事件为每个捕食者递增本地击杀计数。
-- 子代/父代兜底：
-  - 在收到 `breed` 事件时，若能识别到父体（从 `parent_id` 或 `child.parent_id`），前端将本地累计该父体的 `offspring` 次数。
-  - 若事件包含 `child.id` 且能在本帧实体中找到父体，前端将本地推导子体的 `generation = parent.generation + 1`。
-  - 展示规则：调试面板使用“实体字段与兜底值的最大值”进行显示，例如 `Children = max(entity.offspring_count, fallback)`，`Gen = max(entity.generation, fallback)`。
-  - 作用范围：仅用于“本地可视化兜底”。权威统计仍建议由后端计算并随实体或 `counters` 一并传输。
+## 📚 文档导航
 
-渲染与交互
-- 事件驱动效果：
-  - 捕食：吞咽带沿体长移动、喂食脉冲增强；击杀计数递增。
-  - 繁殖：子体平滑成长；若未提供 `spawn_progress`，前端自动推进。
-- 调试面板（左上角）：
-  - 选中实体显示：能量、速度、分裂能量、视野参数、目标追踪、`Kills`（击杀统计），以及 `Gen/Children`（代数/子代数）。其中 `Gen/Children` 将采用实体字段与前端兜底值的最大值展示。
-- 快捷键：
-  - `p` 暂停/继续
-  - `r` 显示/隐藏射线
-  - `d` 显示/隐藏调试面板
-  - `[` / `]` 调整 FOV 距离缩放
-  - `-` / `=` 减少/增加每实体射线数量
+### 📖 快速入门
 
-数据源切换
-- 默认使用 `MockSource`（在 `src/app.py`）：
+| 文档 | 描述 | 适用人群 |
+|------|------|---------|
+| [QUICK_START.md](QUICK_START.md) | 5分钟快速上手 | 所有用户 |
+| [docs/modules/CORE_MODULES.md](docs/modules/CORE_MODULES.md) | 核心模块介绍 | 开发者 |
+| [docs/modules/TRAINING_SYSTEM.md](docs/modules/TRAINING_SYSTEM.md) | 训练系统详解 | 研究者 |
+
+### 🔬 功能模块
+
+| 模块 | 文档 | 功能 |
+|------|------|------|
+| **物理引擎** | [docs/modules/CORE_MODULES.md](docs/modules/CORE_MODULES.md) | 世界模拟、运动物理、碰撞检测 |
+| **强化学习** | [docs/modules/RL_ENVIRONMENT.md](docs/modules/RL_ENVIRONMENT.md) | Gym环境、奖励函数、观测空间 |
+| **课程学习** | [docs/modules/TRAINING_SYSTEM.md](docs/modules/TRAINING_SYSTEM.md) | 4阶段训练、HPO优化 |
+| **可视化** | [docs/modules/VISUALIZATION.md](docs/modules/VISUALIZATION.md) | PyGame渲染、交互控制 |
+| **性能优化** | [docs/modules/PARALLEL_OPTIMIZATION.md](docs/modules/PARALLEL_OPTIMIZATION.md) | QuadTree、多线程 |
+| **配置系统** | [docs/modules/CONFIGURATION.md](docs/modules/CONFIGURATION.md) | 环境、智能体、训练参数 |
+
+---
+
+## 🏗️ 系统架构
+
+### 架构图
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     用户交互层                               │
+│  main.py  train_curriculum.py  demo_curriculum_models.py   │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+        ┌────────────┴────────────┐
+        │                         │
+┌───────▼────────┐      ┌────────▼──────────┐
+│  可视化前端     │      │   强化学习环境     │
+│  PyGame渲染    │      │  Gym接口/PPO训练  │
+│  frontend/     │      │  rl_env/          │
+└───────┬────────┘      └────────┬──────────┘
+        │                        │
+        └────────────┬───────────┘
+                     │
+           ┌─────────▼──────────┐
+           │   核心物理引擎      │
+           │  WorldSimulator    │
+           │  Physics/Sensors   │
+           │  core/             │
+           └─────────┬──────────┘
+                     │
+        ┌────────────┴────────────┐
+        │                         │
+┌───────▼────────┐      ┌────────▼──────────┐
+│  并行优化       │      │   数据模型        │
+│  QuadTree      │      │  EntityState      │
+│  parallel/     │      │  models/          │
+└────────────────┘      └───────────────────┘
+```
+
+### 核心组件
+
+| 组件 | 路径 | 职责 |
+|------|------|------|
+| **配置系统** | `config/` | 环境、智能体、训练、渲染参数 |
+| **物理引擎** | `core/` | 世界模拟、运动、传感器、能量 |
+| **数据模型** | `models/` | 实体状态、世界状态 |
+| **RL环境** | `rl_env/` | Gym环境、奖励、观测、训练 |
+| **可视化** | `frontend/` | PyGame渲染器 |
+| **并行优化** | `parallel/` | QuadTree、多线程 |
+
+---
+
+## 🎓 课程学习系统
+
+### 4阶段训练流程
+
+```
+Stage 1: 猎人 vs 静止猎物
+    ↓ 学会基础追击
+Stage 2: 猎人 vs 脚本猎物
+    ↓ 学会预测和拦截
+Stage 3: 智能猎物训练
+    ↓ 学会逃避策略
+Stage 4: 联合微调
+    ↓ 完整生态系统
+```
+
+### 训练命令
+
+```bash
+# 方式1: 单阶段训练
+python train_curriculum.py --stage stage1
+
+# 方式2: 连续训练多个阶段
+python train_curriculum.py --stages stage1 stage2 stage3 stage4
+
+# 方式3: 启用HPO增强
+python train_curriculum.py --stage stage1 --enable_hpo
+
+# 方式4: 交互式训练
+python train_simple.py
+```
+
+**详细训练指南**: [docs/modules/TRAINING_SYSTEM.md](docs/modules/TRAINING_SYSTEM.md)
+
+---
+
+## 🔧 配置系统
+
+### 统一配置架构
+
+所有参数集中在 `config/` 目录：
+
 ```python
-# source = FileJSONSource(path="runtime/world.json")
-source = MockSource(n_hunters=8, n_prey=24)
+from config import EnvConfig, AgentConfig, TrainingConfig
+
+# 环境配置
+env_cfg = EnvConfig()
+env_cfg.WINDOW_WIDTH = 1600
+env_cfg.WINDOW_HEIGHT = 1000
+
+# 智能体配置
+agent_cfg = AgentConfig()
+agent_cfg.HUNTER_SPEED_MAX = 50.0
+agent_cfg.PREY_SPEED_MAX = 45.0
+
+# 训练配置
+train_cfg = TrainingConfig()
+stage1 = train_cfg.get_stage_config("stage1")
+print(stage1.total_timesteps)  # 50000
 ```
-- 改为使用文件 JSON 并启用事件驱动：
+
+### 配置文件
+
+| 文件 | 内容 | 示例参数 |
+|------|------|---------|
+| `env_config.py` | 环境参数 | 世界大小、最大实体数、能量系统 |
+| `agent_config.py` | 智能体参数 | 速度、视野、转向速度 |
+| `render_config.py` | 渲染参数 | FPS、颜色、调试选项 |
+| `training_config.py` | 训练参数 | 学习率、批次大小、训练步数 |
+
+**详细配置说明**: [docs/modules/CONFIGURATION.md](docs/modules/CONFIGURATION.md)
+
+---
+
+## ⚡ 性能优化
+
+### QuadTree空间索引
+
+**性能对比**:
+
+| 实体数 | 线性查找 | QuadTree | 提升 |
+|-------|---------|----------|------|
+| 20    | 400次   | ~86次    | 5x   |
+| 100   | 10,000次| ~664次   | 15x  |
+| 200   | 40,000次| ~1,529次 | 26x  |
+
+**启用方式**:
+```bash
+# 默认启用
+python main.py
+
+# 禁用（调试用）
+python main.py serial
+```
+
+### 多线程并行
+
+- **后端**: `ParallelRenderer` 用于碰撞检测和传感器查询
+- **前端**: `PygameRenderer` 使用QuadTree加速最近邻查找
+
+**详细优化说明**: [docs/modules/PARALLEL_OPTIMIZATION.md](docs/modules/PARALLEL_OPTIMIZATION.md)
+
+---
+
+## 📊 使用示例
+
+### 示例1: 基础可视化
+
 ```python
-source = FileJSONSource(path="runtime/world.json")
-# source = MockSource(n_hunters=8, n_prey=24)
-```
-- 请在 `runtime/world.json` 提供符合上述结构的帧（含可选 `events` 与 `counters`）。
+from core import WorldSimulator
+from frontend import PygameRenderer
+from config import EnvConfig, AgentConfig
 
-关键代码点
-- `src/models.py`
-  - `Event`：事件数据结构，支持 `predation` / `breed` 等类型。
-  - `WorldState.from_dict`：解析 `entities`、`events` 与可选 `counters`。
-- `src/render.py`
-  - `PygameRenderer.draw_world`：调用 `_process_events` 并推进成长覆盖；绘制实体与面板。
-  - `_process_events(world)`：根据事件触发吞咽/脉冲、记录击杀与出生、合并后端计数。
-  - `_draw_entity(...)`：事件优先的成长缩放；捕食时的吞咽带与喂食脉冲效果。
-- `src/datasource.py`
-  - `FileJSONSource.poll`：读取 JSON 并使用 `WorldState.from_dict` 解析。
-  - `MockSource`：演示用数据源（不含事件）。
+# 创建模拟器
+env_cfg = EnvConfig()
+agent_cfg = AgentConfig()
+simulator = WorldSimulator(env_cfg, agent_cfg, use_parallel=True)
+simulator.initialize(n_hunters=6, n_prey=18)
 
-常见问题（FAQ）
-- 看不到吞咽带/喂食脉冲？
-  - Mock 源没有事件；请切换到 `FileJSONSource` 并在 JSON 帧中提供 `predation` 事件。
-- 子体如何平滑成长？
-  - 后端可传 `spawn_progress`；若无，前端在收到 `breed` 事件后会按 `SPAWN_GROW_RATE` 自动增长。
-- 击杀数如何统计？
-  - 前端根据 `predation` 事件按捕食者累计；若后端提供 `counters.predator_kills`，前端直接读取覆盖。
-- 代数/子代数如何统计？
-  - 权威口径建议由后端在实体字段中提供 `generation` 与 `offspring_count`。
-  - 若后端暂未提供，前端会基于 `breed` 事件进行“本地兜底展示”：从父体 ID 累加子代次数，并在识别到父体与子体时推导 `generation = parent.generation + 1`；展示取实体值与兜底值的最大值。
-  - 注意：兜底统计在刷新或切换数据源后会重置；如需长期一致性与多前端一致，请使用后端统计。
+# 创建渲染器并运行
+renderer = PygameRenderer(use_parallel=True)
 
+class DataSource:
+    def poll(self):
+        return simulator.step()
+    def get_performance_stats(self):
+        return simulator.get_stats()
+    def shutdown(self):
+        simulator.shutdown()
 
+source = DataSource()
+renderer.run_loop(source)
 ```
 
-兼容性与环境
-- 已在 macOS 上使用 Python 3.13 + `pygame-ce 2.5.2` 验证运行。
-- Windows 用户可用 PowerShell 执行：
-```powershell
-python -m venv .venv
-./.venv/Scripts/python -m pip install -r requirements.txt
-./.venv/Scripts/python src/app.py
+### 示例2: RL训练
+
+```python
+from rl_env import CurriculumEcoMARLEnv
+from config import TrainingConfig
+from stable_baselines3 import PPO
+
+# 创建环境
+env = CurriculumEcoMARLEnv(
+    stage="stage1",
+    n_hunters=3,
+    n_prey=6,
+)
+
+# 创建PPO模型
+model = PPO("MlpPolicy", env, verbose=1)
+
+# 训练
+model.learn(total_timesteps=50000)
+
+# 保存模型
+model.save("my_model")
 ```
 
-实体字段可选性与配置默认
-- 后端可以省略以下实体字段，前端将使用安全默认或配置值：
-  - `angle`：可不传，默认 `0.0`（朝向 +x 轴）。
-  - `radius`：可不传，默认 `config.DEFAULT_RADIUS`。
-  - `fov_deg` / `fov_range`：可不传；当 `config.USE_ENTITY_FOV=True` 时：
-    - 若实体未提供则按类型使用默认：`HUNTER_FOV_DEG/HUNTER_FOV_RANGE`、`PREY_FOV_DEG/PREY_FOV_RANGE`。
-    - 若实体提供则优先使用实体值。
-  - `rays`：可不传；前端可基于几何近似计算用于调试与可视化。
-  - `spawn_progress`：可不传；若收到 `breed` 事件，前端将从 0→1 平滑成长（速率 `config.SPAWN_GROW_RATE`）。
-  - `breed_cd`：可不传；前端调试时可使用类型默认 `config.BREED_CD_PREY` / `config.BREED_CD_HUNTER`。
-  - `iteration`/`target_id`/`nn` 等：可不传；前端会根据 `tick`/最近目标/占位网络进行展示与调试。
+### 示例3: 自定义奖励函数
 
-事件与计数的可选性
-- `events`：可选；为空时不会触发吞咽与成长事件，界面正常渲染。
-- `counters`：可选；前端可自行根据 `events` 累计总捕食次数与每捕食者击杀数；
-  - 若提供 `counters.predator_kills`（形如 `{"H-17":4}`），前端直接读取并覆盖展示。
+```python
+from rl_env.rewards import Stage1HunterReward
 
-按场景的配置参数指南（config.py）
-- 视觉/感知配置：
-  - `HUNTER_FOV_DEG/HUNTER_FOV_RANGE`、`PREY_FOV_DEG/PREY_FOV_RANGE`：不同类型默认 FOV；适合“视觉对比”场景。
-  - `USE_ENTITY_FOV`：为真时优先用实体的 FOV；适合后端已计算个体化视角的场景。
-  - `DEFAULT_RAY_COUNT`：射线数量基准；调大提升精度，代价是性能。
-- 捕食动画与触发：
-  - `FEED_ENERGY_DELTA_THRESHOLD`：能量增量阈值，超过触发吞咽带与脉冲；低阈值适合“高频小口”场景。
-  - `FEED_PULSE_GAIN/FEED_PULSE_DECAY/FEED_PULSE_MAX` 与 `FEED_RING_*`：控制脉冲幅度、衰减与环尺寸。
-  - `SWALLOW_*`：控制吞咽带颜色、透明度、速度与尺寸比例；“快速吞咽”可调高 `SWALLOW_SPEED` 并略降 `SWALLOW_DECAY`。
-- 繁殖与成长：
-  - `BREED_CD_PREY/BREED_CD_HUNTER`：不同类型繁殖冷却；“群体爆发增长”可降低冷却。
-  - `SPAWN_MIN_SCALE/SPAWN_GROW_RATE`：子体初始尺寸与成长速率；“幼体展示”可降低最小比例并增加成长时间。
-- 运动与形变：
-  - `SMOOTH_LERP`：插值速率；更平滑的轨迹可略降，代价是响应延迟。
-  - `STRETCH_*` 与 `SOFT_BODY_*`：拉伸残影与果冻形变参数；“高速水滴形态”可提高 `STRETCH_SPEED_SCALE`、`SOFT_BODY_HEAD_COMPRESS`。
-  - `DROPLET_*`：水滴尾迹形态与透明度；开启 `DROPLET_TRAIL_ENABLED` 可获得更强的速度感（有性能开销）。
+class MyCustomReward(Stage1HunterReward):
+    def compute_reward(self, hunter, world_state, prev_state):
+        # 基础奖励
+        reward = super().compute_reward(hunter, world_state, prev_state)
 
-相机跟随与缩放（全局）
-- 功能概述：当在画面中点击选中一个实体时，前端将以该实体为中心进行“全局相机跟随与缩放”，使其运动更易观察；取消选中或实体不再存在时，相机平滑恢复到 1.0 缩放。
-- 相关配置（`src/config.py`）：
-  - `CAMERA_ZOOM_SELECTED`：选中实体时的全局缩放倍数（默认 `1.8`）。可按需要调小到 `1.3~1.5` 以提升性能。
-  - `CAMERA_LERP`：相机缩放与居中平滑插值系数（默认 `0.18`）。数值越大，跟随越快但可能更突兀；越小越平滑。
-- 行为说明：
-  - 相机以选中实体的平滑位置为视口中心，计算一个矩形子视图并缩放到窗口大小展示。
-  - 传感器条与调试面板等 UI 作为屏幕空间元素，不随相机缩放，以保证可读性。
-- 性能注意：
-  - 全局缩放会对离屏图层进行裁剪与缩放，缩放倍数越高开销越大；建议优先调整 `CAMERA_ZOOM_SELECTED` 与 `CAMERA_LERP` 取得平衡。
-  - 如需进一步优化，可将缩放倍数降低、减少软体节点数（`SOFT_BODY_NODES`），或改为坐标级相机（在渲染阶段直接缩放坐标与半径，避免图层像素缩放）。
+        # 自定义奖励：奖励保持高能量
+        if hunter.energy > 80:
+            reward += 1.0
 
-软体运动调试步骤
-- 前置设置：启动程序后按 `d` 打开调试面板；按 `r` 显示/隐藏射线，按 `n` 切换传感器条以辅助观察方向与命中。
-- 观察基线：在默认参数下记录形变与响应感觉（抖动、回弹、收敛速度）。
-- 参数焦点：
-  - 细腻度与稳定性：`SOFT_BODY_NODES`（节点数）、`SOFT_BODY_SPRING_K`（弹簧强度）、`SOFT_BODY_DAMPING`（阻尼）。节点越多越细腻，阻尼越大越稳。
-  - 速度耦合形变：`SOFT_BODY_HEAD_COMPRESS` 与 `SOFT_BODY_TAIL_ELONGATE` 控制“头压缩/尾拉伸”。增大它们可增强“水滴”效果。
-  - 微抖动：`SOFT_BODY_WOBBLE_BASE` 与 `SOFT_BODY_WOBBLE_ANG` 控制基础抖动与角速度增益；抖动过大时提高阻尼以抑制震荡。
-  - 平滑插值：`SMOOTH_LERP` 决定运动平滑度；增大更平滑但响应更慢。
-- 推荐流程：每次只调整一个参数→观察 5–10 秒→记录结果与可接受范围→必要时回退。
-
-吞咽与繁殖效果调试步骤
-- 事件准备：如需精准复现，请切换到 `FileJSONSource` 并在 `runtime/world.json` 中提供事件；也可在 `MockSource` 下仅观察前端视觉效果。
-- 捕食（吞咽带与能量脉冲）：
-  - 触发条件：能量增量超过 `FEED_ENERGY_DELTA_THRESHOLD` 或收到 `predation` 事件。
-  - 视觉参数：`SWALLOW_*` 控制吞咽带的长度、宽高与速度；`FEED_PULSE_*` 控制能量脉冲环的幅度、衰减与上限。
-  - 操作步骤：
-    1) 按 `d` 开启调试面板，关注 `Kills` 与能量变化；
-    2) 缓慢调高 `SWALLOW_SPEED` 与适度降低 `SWALLOW_DECAY` 观察带状高亮的长度与消退；
-    3) 调整 `FEED_PULSE_GAIN/DECAY/MAX`，确认脉冲环边缘清晰且能在 1–2 秒内淡出；
-    4) 选中捕食者，确认摄像机跟随与缩放下效果仍自然。
-  - 事件示例（最小片段）：
-```json
-{
-  "tick": 123,
-  "entities": [
-    {"id":"H-1","type":"hunter","x":300,"y":200,"angle":0.5,"energy":12.0},
-    {"id":"P-9","type":"prey","x":320,"y":210,"angle":-0.3,"energy":4.0}
-  ],
-  "events": [
-    {"type":"predation","predator_id":"H-1","prey_id":"P-9","energy_delta":1.2}
-  ]
-}
-```
-- 繁殖（平滑成长）：
-  - 触发条件：收到 `breed` 事件。
-  - 视觉参数：`SPAWN_MIN_SCALE`（子体初始比例）与 `SPAWN_GROW_RATE`（成长速率）。
-  - 操作步骤：
-    1) 提供 `breed` 事件，按 `d` 开启调试面板，观察 `Children` 与 `Gen` 展示；
-    2) 调整 `SPAWN_MIN_SCALE` 以控制起始大小，适度调 `SPAWN_GROW_RATE` 让成长在 0.8–2.0 秒间完成；
-    3) 确认子体在成长过程中具有连贯位置与角度（来自后端或前端平滑）。
-  - 事件示例（最小片段）：
-```json
-{
-  "tick": 456,
-  "entities": [
-    {"id":"P-2","type":"prey","x":420,"y":300,"angle":0.1,"energy":5.0}
-  ],
-  "events": [
-    {"type":"breed","parent_id":"P-2","child":{"id":"P-2-1","type":"prey","x":428,"y":304,"angle":0.1}}
-  ]
-}
+        return reward
 ```
 
-验证清单
-- 选中实体后相机居中与缩放正常；UI 不随缩放失真。
-- 捕食时吞咽带沿运动方向移动，能量脉冲环平滑淡出；`Kills` 统计符合预期。
-- 繁殖时子体从 `SPAWN_MIN_SCALE` 平滑增长到目标半径，父子代数/子代计数展示正确（若后端未提供则使用前端兜底）。
+---
+
+## 🧪 测试
+
+```bash
+# 配置统一性测试
+python tests/test_config_unified.py
+
+# 训练系统测试
+python tests/test_unified_training.py
+
+# 性能基准测试
+python tests/benchmark_performance.py
+```
+
+---
+
+## 📁 项目结构
+
+```
+EcoMARL-Simulator/
+├── README.md                      # 项目主文档（本文件）
+├── QUICK_START.md                 # 快速开始指南
+├── requirements.txt               # Python依赖
+│
+├── main.py                        # 主可视化入口
+├── train_curriculum.py            # 课程学习训练（统一版）
+├── train_simple.py               # 交互式训练
+├── train.py                      # 基础PPO训练
+├── demo_curriculum_models.py     # 模型演示脚本
+│
+├── config/                        # 配置模块
+│   ├── env_config.py             # 环境配置
+│   ├── agent_config.py           # 智能体配置
+│   ├── render_config.py          # 渲染配置
+│   └── training_config.py        # 训练配置 ✨统一
+│
+├── core/                          # 核心物理引擎
+│   ├── world.py                  # WorldSimulator - 世界模拟
+│   ├── physics.py                # PhysicsEngine - 运动物理
+│   ├── sensors.py                # SensorSystem - 视野系统
+│   └── energy.py                 # EnergySystem - 能量管理
+│
+├── models/                        # 数据模型
+│   └── state.py                  # EntityState, WorldState
+│
+├── rl_env/                        # 强化学习环境
+│   ├── envs/                     # Gym环境实现
+│   │   ├── gym_env_enhanced.py          # 基础环境
+│   │   ├── gym_env_curriculum.py        # 课程学习环境
+│   │   └── gym_env_curriculum_hpo.py    # HPO增强环境
+│   │
+│   ├── rewards/                  # 奖励函数
+│   │   ├── rewards_enhanced.py          # 基础奖励V1
+│   │   ├── rewards_enhanced_v2.py       # 增强奖励V2
+│   │   ├── rewards_curriculum.py        # 课程学习奖励
+│   │   ├── rewards_curriculum_hpo.py    # HPO增强奖励
+│   │   └── hpo_enhancements.py          # HPO组件
+│   │
+│   ├── training/                 # 训练组件
+│   │   ├── networks.py           # ActorCriticNetwork
+│   │   └── ppo_trainer.py        # PPOTrainer
+│   │
+│   ├── observations.py           # 观测空间
+│   └── agent_controller.py       # 智能体控制器
+│
+├── frontend/                      # 可视化前端
+│   └── pygame_renderer.py        # PyGame渲染器
+│
+├── parallel/                      # 并行优化
+│   ├── quadtree.py               # QuadTree空间索引
+│   ├── scheduler.py              # 任务调度
+│   └── renderer.py               # 并行渲染
+│
+├── tests/                         # 测试套件
+│   ├── test_config_unified.py    # 配置统一性测试
+│   ├── test_unified_training.py  # 训练系统测试
+│   └── benchmark_performance.py  # 性能基准测试
+│
+├── docs/                          # 文档目录
+│   └── modules/                  # 模块详细文档
+│       ├── CORE_MODULES.md       # 核心模块
+│       ├── RL_ENVIRONMENT.md     # 强化学习环境
+│       ├── TRAINING_SYSTEM.md    # 训练系统
+│       ├── VISUALIZATION.md      # 可视化系统
+│       ├── PARALLEL_OPTIMIZATION.md  # 性能优化
+│       └── CONFIGURATION.md      # 配置系统
+│
+├── curriculum_models/             # 标准训练模型
+└── curriculum_models_hpo/         # HPO训练模型
+```
+
+---
+
+## 🔬 技术栈
+
+| 类别 | 技术 | 用途 |
+|------|------|------|
+| **语言** | Python 3.8+ | 主要开发语言 |
+| **深度学习** | PyTorch 2.0+ | 神经网络 |
+| **强化学习** | Stable-Baselines3 | PPO算法 |
+| **可视化** | PyGame 2.0+ | 实时渲染 |
+| **数值计算** | NumPy | 数组运算 |
+| **并行** | multiprocessing | 多线程 |
+| **空间索引** | QuadTree (自实现) | 性能优化 |
+
+---
+
+## 🤝 贡献指南
+
+欢迎贡献！请遵循以下步骤：
+
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+**开发规范**:
+- 遵循PEP 8代码风格
+- 添加单元测试
+- 更新相关文档
+
+---
+
+## 📝 许可证
+
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+
+---
+
+## 🙏 致谢
+
+- **Stable-Baselines3**: PPO算法实现
+- **PyGame**: 可视化框架
+- **PyTorch**: 深度学习框架
+
+---
+
+## 📧 联系方式
+
+- **项目链接**: [GitHub Repository](https://github.com/yourusername/EcoMARL-Simulator)
+- **问题反馈**: [Issues](https://github.com/yourusername/EcoMARL-Simulator/issues)
+
+---
+
+## 🚀 立即开始
+
+```bash
+# 克隆项目
+git clone <repository-url>
+cd EcoMARL-Simulator
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 运行可视化
+python main.py
+
+# 开始训练
+python train_curriculum.py --stage stage1
+```
+
+**更多详情**: [QUICK_START.md](QUICK_START.md)
+
+---
+
+**祝你探索愉快！** 🎉
