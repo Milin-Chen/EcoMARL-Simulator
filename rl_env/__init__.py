@@ -57,6 +57,16 @@ except ImportError as e:
 from .observations import ObservationSpace
 from .agent_controller import RLAgentController, HybridController
 
+# 训练日志
+try:
+    from .logger_callback import LoggerCallback, create_logger_callback
+    from .training_logger import init_logger, log_step, log_penalty, log_event, finish_logger
+except ImportError as e:
+    import warnings
+    warnings.warn(f"无法导入训练日志模块: {e}")
+    LoggerCallback = None
+    create_logger_callback = None
+
 # 兼容性别名 - 确保旧代码无需修改
 EcoMARLEnv = EnhancedEcoMARLEnv
 ImprovedEcoMARLEnv = EnhancedEcoMARLEnv
@@ -97,6 +107,15 @@ __all__ = [
     'ObservationSpace',
     'RLAgentController',
     'HybridController',
+
+    # === 训练日志 ===
+    'LoggerCallback',
+    'create_logger_callback',
+    'init_logger',
+    'log_step',
+    'log_penalty',
+    'log_event',
+    'finish_logger',
 
     # === 兼容性别名 ===
     'EcoMARLEnv',

@@ -422,30 +422,30 @@ class Stage3PreyRewardHPO:
             total_steps: 该阶段总训练步数
             enable_hpo: 是否启用HPO增强
         """
-        # 基础奖励参数 (深度修复: 大幅提高正向奖励)
-        self.survival_bonus = 15.0  # 深度修复: 5.0 → 10.0 → 15.0 (提高200%)
-        self.escape_scale = 30.0  # 深度修复: 15.0 → 20.0 → 30.0 (提高100%)
+        # 基础奖励参数 (同步普通版本的改进 + 降低距离奖励)
+        self.survival_bonus = 5.0  # 提高: 0.5 → 5.0 (10x)
+        self.escape_scale = 15.0  # 降低: 30.0 → 15.0 (防止静止刷分)
         self.danger_distance = 300.0  # 提高: 200.0 → 300.0
         self.critical_distance = 150.0  # 新增: 极度危险距离
         self.critical_escape_multiplier = 3.0  # 新增: 极度危险时3倍倍数
-        self.herd_scale = 2.0  # 深度修复: 3.0 → 1.0 → 2.0 (提高聚集奖励)
+        self.herd_scale = 1.0  # 降低: 3.0 → 1.0 (避免聚堆)
         self.herd_distance = 100.0
-        self.evasion_bonus = 35.0  # 深度修复: 10.0 → 25.0 → 35.0 (提高250%)
-        # 移动要求 (深度修复: 进一步降低速度要求)
-        self.min_speed_threshold = 15.0  # 深度修复: 30.0 → 20.0 → 15.0 (进一步降低)
-        self.movement_reward_scale = 12.0  # 深度修复: 5.0 → 8.0 → 12.0 (提高140%)
-        # 静止惩罚 (深度修复: 进一步降低50%)
-        self.stationary_penalty = -5.0  # 深度修复: -35.0 → -10.0 → -5.0 (降低86%)
-        self.low_speed_penalty_scale = 1.0  # 深度修复: 8.0 → 2.0 → 1.0 (降低87.5%)
+        self.evasion_bonus = 25.0  # 提高: 10.0 → 25.0
+        # 提高移动要求 (强化: 猎物必须快速逃跑)
+        self.min_speed_threshold = 30.0  # 大幅提高: 20.0 → 30.0 (要求高速逃跑)
+        self.movement_reward_scale = 5.0  # 大幅提高: 3.0 → 5.0 (奖励高速移动)
+        # 极大加强静止惩罚 (严厉惩罚原地不动)
+        self.stationary_penalty = -35.0  # 再次加强: -20.0 → -35.0 (必须逃跑!)
+        self.low_speed_penalty_scale = 8.0  # 再次加强: 5.0 → 8.0 (严惩低速)
         self.death_penalty = -50.0
         self.flee_direction_scale = 5.0  # 降低: 10.0 → 5.0
         self.turn_reward_scale = 0.5  # 修改: 2.0 → 0.5 (防止原地转圈)
         self.escape_bonus_scale = 20.0  # 新增: 逃跑加成基数
 
-        # 新增: 非意图性行为惩罚 (深度修复: 大幅降低)
-        self.approach_hunter_penalty = -5.0  # 接近猎人惩罚 (深度修复: -20.0 → -5.0)
-        self.facing_hunter_penalty = -3.0  # 面向猎人惩罚 (深度修复: -15.0 → -3.0)
-        self.ineffective_escape_penalty = -2.0  # 无效逃跑惩罚 (深度修复: -8.0 → -2.0)
+        # 新增: 非意图性行为惩罚
+        self.approach_hunter_penalty = -20.0  # 接近猎人惩罚
+        self.facing_hunter_penalty = -15.0  # 面向猎人惩罚
+        self.ineffective_escape_penalty = -8.0  # 无效逃跑惩罚
 
         # HPO增强器
         self.enable_hpo = enable_hpo
@@ -472,15 +472,15 @@ class Stage3PreyRewardHPO:
         # 新增: 位置抖动检测 (防止多目标时原地停顿)
         self.position_history = {}  # prey_id -> [(x, y), ...]
         self.position_history_length = 5  # 追踪5步历史
-        self.jitter_penalty = -3.0  # 原地抖动惩罚 (深度修复: -25.0 → -8.0 → -3.0, 降低88%)
-        self.jitter_radius_threshold = 30.0  # 5步内活动半径<30px判定为抖动 (深度修复: 8.0 → 20.0 → 30.0, 进一步放宽)
+        self.jitter_penalty = -25.0  # 原地抖动惩罚 (修改: -15.0 → -25.0 加强惩罚)
+        self.jitter_radius_threshold = 8.0  # 5步内活动半径<8px判定为抖动 (修改: 15.0 → 8.0 收紧阈值)
 
         # 高角速度惩罚
         self.high_angular_velocity_penalty = -5.0
         self.angular_velocity_threshold = 0.3
 
-        # 新增: 集群-逃跑冲突检测 (深度修复: 大幅降低)
-        self.herd_escape_conflict_penalty = -2.0  # 在危险时聚集的惩罚 (深度修复: -10.0 → -2.0)
+        # 新增: 集群-逃跑冲突检测
+        self.herd_escape_conflict_penalty = -10.0  # 在危险时聚集的惩罚
         self.dangerous_herd_distance = 200.0  # 猎人200px内不应聚集
 
         # 新增: 多猎人威胁感知
@@ -488,8 +488,8 @@ class Stage3PreyRewardHPO:
         self.use_multi_hunter_threat = True  # 启用多猎人威胁感知
 
         # 同类重叠惩罚 (防止猎物过度聚集导致静止)
-        self.same_type_overlap_penalty = -3.0  # 基础惩罚 (深度修复: -20.0 → -8.0 → -3.0, 降低85%)
-        self.overlap_penalty_multiplier = 1.5   # 重叠程度倍数 (深度修复: 3.0 → 2.0 → 1.5)
+        self.same_type_overlap_penalty = -20.0  # 基础惩罚 (最严格)
+        self.overlap_penalty_multiplier = 3.0   # 重叠程度倍数
         self.min_safe_distance_multiplier = 1.5 # 最小安全距离 = (r1+r2) * 1.5 (猎物需要更大空间)
 
     def detect_same_type_overlap(self, entity: EntityState, world: WorldState) -> Tuple[int, float]:
@@ -699,30 +699,21 @@ class Stage3PreyRewardHPO:
 
         # 6. 逃跑方向奖励 (使用综合威胁角度)
         # threat_angle已由compute_threat_vector计算
-        # 注意: threat_angle 指向猎人的方向 (猎物应该逃离的方向)
 
-        # 计算猎物朝向与威胁方向的角度差
-        angle_diff = prey.angle - threat_angle
-        # 归一化到 [-π, π]
-        while angle_diff > math.pi:
-            angle_diff -= 2 * math.pi
-        while angle_diff < -math.pi:
-            angle_diff += 2 * math.pi
-
-        # 计算逃跑对齐度: 猎物应该背离威胁 (angle_diff 接近 ±π 最好)
-        # cos(angle_diff) = -1 表示完全背离 (最佳逃跑方向)
-        # cos(angle_diff) = +1 表示面向威胁 (最差)
-        flee_alignment = -math.cos(angle_diff)  # 反转后: +1=背离, -1=面向
+        angle_diff = abs(prey.angle - threat_angle)
+        if angle_diff > math.pi:
+            angle_diff = 2 * math.pi - angle_diff
 
         # 多猎人额外奖励
         multi_threat_multiplier = 1.0
         if self.use_multi_hunter_threat and len(visible_hunters) >= 2:
             multi_threat_multiplier = 1.0 + 0.2 * (len(visible_hunters) - 1)
 
-        # 只在背离威胁时给奖励 (flee_alignment > 0)
-        if flee_alignment > 0:
-            flee_reward = self.flee_direction_scale * flee_alignment * multi_threat_multiplier
-            reward += flee_reward
+        if angle_diff > math.pi / 2:
+            flee_alignment = math.cos(angle_diff + math.pi)
+            if flee_alignment > 0:
+                flee_reward = self.flee_direction_scale * flee_alignment * multi_threat_multiplier
+                reward += flee_reward
 
         # 7. 移动奖励与静止惩罚 (使用动态权重)
         speed_ratio = prey.speed / 52.0  # 更新: 45.0 → 52.0 (同步agent_config改进)
@@ -762,8 +753,7 @@ class Stage3PreyRewardHPO:
 
         # 强化逃跑加成: 高速 + 方向对齐 + 危险程度 + 持续时间 + 逃离速度
         if min_distance < self.danger_distance and prey.speed > self.min_speed_threshold:
-            # 正确判断: 只在背离威胁时给奖励 (flee_alignment > 0.3)
-            if flee_alignment > 0.3 and prev_min_distance is not None:
+            if angle_diff > math.pi / 2 and prev_min_distance is not None:
                 # 计算逃离速度因子 (归一化到0-1)
                 escape_speed_factor = 0.0
                 if distance_change > 0.5:  # 有效逃离
@@ -788,18 +778,17 @@ class Stage3PreyRewardHPO:
                     critical_tag = "[极度危险]" if min_distance < self.critical_distance else ""
                     print(f"[HPO逃跑连击{critical_tag}] {prey.id}: {current_streak}步 × {escape_multiplier:.2f}倍, 逃离{distance_change:.1f}px, 距离{min_distance:.1f}px = +{escape_bonus:.2f}")
             else:
-                # 非意图性逃跑惩罚: 在危险区域内但面向猎人 (flee_alignment < 0)
-                if min_distance < self.danger_distance and flee_alignment < 0:
+                # 非意图性逃跑惩罚: 在危险区域内但朝向猎人
+                if min_distance < self.danger_distance:
                     danger_level = 1.0 - (min_distance / self.danger_distance)
                     # 极度危险时加倍惩罚
                     if min_distance < self.critical_distance:
                         danger_level *= 2.0
-                    # 惩罚强度与面向程度成正比 (abs(flee_alignment) 越大惩罚越重)
-                    facing_penalty = self.facing_hunter_penalty * speed_ratio * danger_level * abs(flee_alignment)
+                    facing_penalty = self.facing_hunter_penalty * speed_ratio * danger_level
                     reward += facing_penalty
-                    log_penalty('facing_hunter', abs(facing_penalty))
+                    log_penalty('herd_conflict', abs(facing_penalty))
                     if abs(facing_penalty) > 2.0:
-                        print(f"[HPO面向惩罚] {prey.id}: 距离={min_distance:.1f}px, 面向程度={flee_alignment:.2f}, penalty={facing_penalty:.2f}")
+                        print(f"[HPO面向惩罚] {prey.id}: 距离={min_distance:.1f}, penalty={facing_penalty:.2f}")
 
         # 8.5 新增: 接近猎人惩罚 (强化版)
         if prev_min_distance is not None and closest_hunter is not None:
