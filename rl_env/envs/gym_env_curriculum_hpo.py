@@ -82,21 +82,30 @@ class CurriculumEcoMARLEnvHPO(CurriculumEcoMARLEnv):
                 self.hpo_enhancer = reward_fn.prey_reward.hpo_enhancer
 
         else:  # stage4
-            # Stage4联合训练，同时增强两者
-            if hasattr(reward_fn, 'hunter_reward'):
-                print(f"  ✓ 启用HPO增强 - Stage4猎手奖励")
-                reward_fn.hunter_reward = Stage1HunterRewardHPO(
-                    total_steps=self.total_steps,
-                    enable_hpo=True
-                )
-            if hasattr(reward_fn, 'prey_reward'):
-                print(f"  ✓ 启用HPO增强 - Stage4猎物奖励")
-                reward_fn.prey_reward = Stage3PreyRewardHPO(
-                    total_steps=self.total_steps,
-                    enable_hpo=True
-                )
-            # 使用猎手的增强器作为主要统计
-            self.hpo_enhancer = reward_fn.hunter_reward.hpo_enhancer if hasattr(reward_fn, 'hunter_reward') else None
+            # Stage4联合训练，替换joint_reward内的子奖励函数
+            if hasattr(reward_fn, 'joint_reward'):
+                joint = reward_fn.joint_reward
+                print(f"  ✓ 启用HPO增强 - Stage4联合奖励")
+
+                # 替换joint_reward内的hunter_reward和prey_reward
+                if hasattr(joint, 'hunter_reward'):
+                    joint.hunter_reward = Stage1HunterRewardHPO(
+                        total_steps=self.total_steps,
+                        enable_hpo=True
+                    )
+                    print(f"    - Stage4猎手奖励已替换为HPO版本")
+
+                if hasattr(joint, 'prey_reward'):
+                    joint.prey_reward = Stage3PreyRewardHPO(
+                        total_steps=self.total_steps,
+                        enable_hpo=True
+                    )
+                    print(f"    - Stage4猎物奖励已替换为HPO版本")
+
+                # 使用猎手的增强器作为主要统计
+                self.hpo_enhancer = joint.hunter_reward.hpo_enhancer if hasattr(joint, 'hunter_reward') else None
+            else:
+                print(f"  ⚠️  警告: Stage4没有joint_reward属性，HPO增强失败")
 
     def step(self, action: np.ndarray):
         """执行一步 (带HPO状态更新)"""

@@ -17,6 +17,14 @@ from config import EnvConfig, AgentConfig
 from ..observations import ObservationSpace
 from ..rewards import EnhancedRewardFunction, EnhancedRewardFunctionV2
 
+# 导入训练日志器
+try:
+    from ..training_logger import log_event
+except ImportError:
+    # 如果logger不可用，使用空函数
+    def log_event(event_type: str):
+        pass
+
 
 class EnhancedEcoMARLEnv:
     """
@@ -158,6 +166,16 @@ class EnhancedEcoMARLEnv:
         # 更新统计
         self._update_stats(prev_world, self.world, rewards)
 
+        # 记录逃脱事件 (episode因超时结束，且猎物仍存活)
+        if any(dones.values()):  # episode结束
+            # 检查是否因为达到最大步数而结束 (非灭绝)
+            if self.step_count >= self.max_steps and not extinction_occurred:
+                # 统计存活的猎物数量
+                alive_prey_count = len([e for e in self.world.entities if e.type == "prey"])
+                # 为每个存活的猎物记录一次逃脱成功
+                for _ in range(alive_prey_count):
+                    log_event('escape')
+
         # 额外信息
         info = {
             "stats": self.simulator.get_stats(),
@@ -297,6 +315,10 @@ class EnhancedEcoMARLEnv:
         # 捕食事件
         predation_events = [e for e in curr_world.events if e.type == "predation"]
         self.episode_stats["total_predations"] += len(predation_events)
+
+        # 记录到logger
+        for _ in predation_events:
+            log_event('predation')
 
         # 繁殖事件
         birth_events = [e for e in curr_world.events if e.type == "breed"]
