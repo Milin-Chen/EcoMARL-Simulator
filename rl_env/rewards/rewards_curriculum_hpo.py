@@ -467,6 +467,7 @@ class Stage3PreyRewardHPO:
         self.prev_positions = {}
         self.prev_min_distances = {}
         self.prev_angles = {}
+        self.prev_speeds = {}  # 新增: 追踪前一帧速度 (用于紧急制动)
 
         # 持续逃跑时间追踪 (同步普通版本的改进)
         self.escape_streak = {}
@@ -479,9 +480,17 @@ class Stage3PreyRewardHPO:
         self.jitter_penalty = -3.0  # 原地抖动惩罚 (深度修复: -25.0 → -8.0 → -3.0, 降低88%)
         self.jitter_radius_threshold = 30.0  # 5步内活动半径<30px判定为抖动 (深度修复: 8.0 → 20.0 → 30.0, 进一步放宽)
 
-        # 高角速度惩罚
-        self.high_angular_velocity_penalty = -5.0
-        self.angular_velocity_threshold = 0.3
+        # 高角速度惩罚 (优化: 放宽阈值，降低惩罚)
+        self.high_angular_velocity_penalty = -3.0  # 降低: -5.0 → -3.0 (减少40%)
+        self.angular_velocity_threshold = 0.5  # 放宽: 0.3 → 0.5 (提高67%, 允许更快转向)
+
+        # 新增: 危险区域快速转向奖励
+        self.danger_turn_bonus = 15.0  # 危险时快速转向的奖励
+        self.danger_turn_threshold = 250.0  # 触发危险转向奖励的距离
+
+        # 新增: 紧急制动机制 (允许猎物在发现威胁时减速转向)
+        self.emergency_brake_bonus = 8.0  # 紧急制动奖励
+        self.emergency_brake_distance = 220.0  # 触发紧急制动的距离
 
         # 新增: 集群-逃跑冲突检测 (优化: 移除冲突惩罚，鼓励集群协同逃跑)
         self.herd_escape_conflict_penalty = 0.0  # 移除惩罚: -2.0 → 0.0 (允许集群灵活逃跑)
@@ -813,6 +822,19 @@ class Stage3PreyRewardHPO:
             flee_reward = self.flee_direction_scale * flee_alignment * multi_threat_multiplier
             reward += flee_reward
 
+        # 6.5 新增: 紧急制动奖励 (当猎物看到威胁且朝向错误时，允许减速转向)
+        prev_speed = self.prev_speeds.get(prey.id)
+        if min_distance < self.emergency_brake_distance and flee_alignment < 0.2:
+            # 正在面向威胁或侧向移动
+            if prev_speed is not None and prey.speed < prev_speed - 3.0:
+                # 正在显著减速 (超过3单位)，准备转向
+                danger_level = 1.0 - (min_distance / self.emergency_brake_distance)
+                # 速度越高减速奖励越多 (鼓励从高速刹车)
+                brake_reward = self.emergency_brake_bonus * (prev_speed / 60.0) * danger_level
+                reward += brake_reward
+                if brake_reward > 3.0:
+                    print(f"[紧急制动HPO] 猎物 {prey.id}: 从{prev_speed:.1f}减速到{prey.speed:.1f}, 距离={min_distance:.1f}px, 奖励={brake_reward:.2f}")
+
         # 7. 移动奖励与静止惩罚 (使用动态权重)
         speed_ratio = prey.speed / 52.0  # 更新: 45.0 → 52.0 (同步agent_config改进)
 
@@ -924,7 +946,7 @@ class Stage3PreyRewardHPO:
         if closest_hunter is not None:
             prev_angle = self.prev_angles.get(prey.id)
             if prev_angle is not None:
-                # 高角速度惩罚 (防止原地快速转圈)
+                # 计算角速度
                 angle_change = prey.angle - prev_angle
                 while angle_change > math.pi:
                     angle_change -= 2 * math.pi
@@ -932,12 +954,30 @@ class Stage3PreyRewardHPO:
                     angle_change += 2 * math.pi
 
                 angular_velocity = abs(angle_change)
+
+                # 危险区域快速转向奖励 (新增)
+                if min_distance < self.danger_turn_threshold and angular_velocity > 0.35:
+                    # 如果转向正确方向 (背离威胁)
+                    if flee_alignment > 0.5:
+                        danger_level = 1.0 - (min_distance / self.danger_turn_threshold)
+                        danger_turn_reward = self.danger_turn_bonus * angular_velocity * danger_level
+                        reward += danger_turn_reward
+                        if danger_turn_reward > 5.0:
+                            print(f"[危险转向奖励HPO] 猎物 {prey.id}: 距离={min_distance:.1f}px, 角速度={angular_velocity:.3f}rad, 奖励={danger_turn_reward:.2f}")
+
+                # 高角速度惩罚 (优化: 危险区域正确转向时不惩罚)
                 if angular_velocity > self.angular_velocity_threshold:
-                    high_angular_penalty = self.high_angular_velocity_penalty * (angular_velocity / math.pi)
-                    reward += high_angular_penalty
-                    log_penalty('high_angular', abs(high_angular_penalty))
-                    if angular_velocity > 0.5:
-                        print(f"[高角速度惩罚HPO Stage3] 猎物 {prey.id} 角速度={angular_velocity:.3f}rad, 惩罚={high_angular_penalty:.2f}")
+                    # 在危险区域且转向正确方向时，不惩罚
+                    is_danger_zone = min_distance < self.danger_distance
+                    is_correct_turn = flee_alignment > 0.3
+
+                    if not (is_danger_zone and is_correct_turn):
+                        # 其他情况才惩罚 (安全区域转圈、危险区域转错方向)
+                        high_angular_penalty = self.high_angular_velocity_penalty * (angular_velocity / math.pi)
+                        reward += high_angular_penalty
+                        log_penalty('high_angular', abs(high_angular_penalty))
+                        if angular_velocity > 0.6:
+                            print(f"[高角速度惩罚HPO Stage3] 猎物 {prey.id} 角速度={angular_velocity:.3f}rad, 惩罚={high_angular_penalty:.2f}")
 
                 dx = closest_hunter.x - prey.x
                 dy = closest_hunter.y - prey.y
@@ -988,6 +1028,7 @@ class Stage3PreyRewardHPO:
         self.prev_positions[prey.id] = (prey.x, prey.y)
         self.prev_min_distances[prey.id] = min_distance
         self.prev_angles[prey.id] = prey.angle
+        self.prev_speeds[prey.id] = prey.speed  # 新增: 保存当前速度供下一帧使用
 
         # 应用对抗平衡系数
         reward *= prey_mult
