@@ -11,6 +11,7 @@ from typing import Dict
 @dataclass
 class CurriculumStageConfig:
     """单个课程阶段的配置"""
+
     name: str
     description: str
     n_hunters: int
@@ -30,26 +31,26 @@ class TrainingConfig:
     """训练超参数全局配置"""
 
     # ===== PPO算法参数 =====
-    PPO_N_STEPS: int = 2048          # 每次更新收集的步数
-    PPO_BATCH_SIZE: int = 64         # 批次大小
-    PPO_N_EPOCHS: int = 10           # 每次更新的训练轮数
-    PPO_GAMMA: float = 0.99          # 折扣因子
-    PPO_GAE_LAMBDA: float = 0.95     # GAE参数
-    PPO_CLIP_RANGE: float = 0.2      # PPO裁剪参数
-    PPO_ENT_COEF: float = 0.01       # 熵系数
+    PPO_N_STEPS: int = 2048  # 每次更新收集的步数
+    PPO_BATCH_SIZE: int = 64  # 批次大小
+    PPO_N_EPOCHS: int = 10  # 每次更新的训练轮数
+    PPO_GAMMA: float = 0.99  # 折扣因子
+    PPO_GAE_LAMBDA: float = 0.95  # GAE参数
+    PPO_CLIP_RANGE: float = 0.2  # PPO裁剪参数
+    PPO_ENT_COEF: float = 0.01  # 熵系数
 
     # ===== 训练控制参数 =====
-    DEFAULT_DEVICE: str = "auto"     # 默认设备 ("auto", "cpu", "cuda")
-    DEFAULT_N_ENVS: int = 4          # 默认并行环境数
+    DEFAULT_DEVICE: str = "auto"  # 默认设备 ("auto", "cpu", "cuda")
+    DEFAULT_N_ENVS: int = 4  # 默认并行环境数
     DEFAULT_MODEL_DIR: str = "curriculum_models"  # 默认模型保存目录
-    SAVE_INTERVAL: int = 10000       # 模型保存间隔
-    LOG_INTERVAL: int = 100          # 日志打印间隔
-    REWARD_LOG_INTERVAL: int = 10    # 实时奖励输出间隔
+    SAVE_INTERVAL: int = 10000  # 模型保存间隔
+    LOG_INTERVAL: int = 100  # 日志打印间隔
+    REWARD_LOG_INTERVAL: int = 10  # 实时奖励输出间隔
 
     # ===== HPO增强参数 =====
-    HPO_ENABLE_ADAPTIVE: bool = True       # 自适应权重缩放
-    HPO_ENABLE_BALANCING: bool = True      # 对抗性平衡
-    HPO_ENABLE_DISTANCE: bool = True       # 距离进度追踪
+    HPO_ENABLE_ADAPTIVE: bool = True  # 自适应权重缩放
+    HPO_ENABLE_BALANCING: bool = True  # 对抗性平衡
+    HPO_ENABLE_DISTANCE: bool = True  # 距离进度追踪
 
     # ===== 课程学习阶段配置 =====
     @staticmethod
@@ -89,7 +90,7 @@ class TrainingConfig:
                 description="学习逃跑和集群",
                 n_hunters=6,
                 n_prey=18,
-                total_timesteps=100000,
+                total_timesteps=150000,
                 learning_rate=3e-4,
                 prey_behavior="learned",
                 train_hunters=False,
@@ -103,7 +104,7 @@ class TrainingConfig:
                 description="平衡对抗",
                 n_hunters=6,
                 n_prey=18,
-                total_timesteps=100000,
+                total_timesteps=150000,
                 learning_rate=1e-4,
                 prey_behavior="learned",
                 train_hunters=True,

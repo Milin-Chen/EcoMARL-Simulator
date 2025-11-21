@@ -87,10 +87,10 @@ class Stage1HunterRewardHPO:
         self.vision_check_distance = 200.0
         self.fov_angle = self.agent_config.HUNTER_FOV_DEG * math.pi / 180.0 / 2.0
 
-        # 同类重叠惩罚 (防止猎人聚集到同一点)
-        self.same_type_overlap_penalty = -15.0  # 基础惩罚
-        self.overlap_penalty_multiplier = 2.0   # 重叠程度倍数
-        self.min_safe_distance_multiplier = 1.2 # 最小安全距离 = (r1+r2) * 1.2
+        # 同类重叠惩罚 (强力防止猎人聚集到同一点)
+        self.same_type_overlap_penalty = -30.0  # 基础惩罚 (增强: -15.0 → -30.0, 防止猎人集群)
+        self.overlap_penalty_multiplier = 3.0   # 重叠程度倍数 (增强: 2.0 → 3.0)
+        self.min_safe_distance_multiplier = 1.5 # 最小安全距离 = (r1+r2) * 1.5 (增强: 1.2 → 1.5)
 
     def detect_same_type_overlap(self, entity: EntityState, world: WorldState) -> Tuple[int, float]:
         """检测与同类的重叠情况
@@ -422,14 +422,18 @@ class Stage3PreyRewardHPO:
             total_steps: 该阶段总训练步数
             enable_hpo: 是否启用HPO增强
         """
-        # 基础奖励参数 (深度修复: 大幅提高正向奖励)
-        self.survival_bonus = 15.0  # 深度修复: 5.0 → 10.0 → 15.0 (提高200%)
-        self.escape_scale = 30.0  # 深度修复: 15.0 → 20.0 → 30.0 (提高100%)
-        self.danger_distance = 300.0  # 提高: 200.0 → 300.0
-        self.critical_distance = 150.0  # 新增: 极度危险距离
-        self.critical_escape_multiplier = 3.0  # 新增: 极度危险时3倍倍数
-        self.herd_scale = 2.0  # 深度修复: 3.0 → 1.0 → 2.0 (提高聚集奖励)
-        self.herd_distance = 100.0
+        # 基础奖励参数 (强化: 大幅增强反应灵敏度)
+        self.survival_bonus = 15.0  # 基础存活奖励
+        self.escape_scale = 50.0  # 强化: 40.0 → 50.0 (增强25%, 更强逃跑动机)
+        self.danger_distance = 400.0  # 扩大: 350.0 → 400.0 (增强14%, 更早感知)
+        self.critical_distance = 200.0  # 扩大: 180.0 → 200.0 (增强11%, 更大危险区)
+        self.critical_escape_multiplier = 5.0  # 强化: 4.0 → 5.0 (增强25%, 极度危险时更强反应)
+
+        # 集群行为参数 (强化: 鼓励猎物形成集群)
+        self.herd_scale = 5.0  # 强化: 3.0 → 5.0 (大幅加强集群奖励)
+        self.herd_distance = 150.0  # 扩大: 120.0 → 150.0 (更大的集群感知范围)
+        self.herd_cohesion_bonus = 25.0  # 增强: 15.0 → 25.0 (集群凝聚力奖励)
+        self.herd_alignment_bonus = 20.0  # 增强: 10.0 → 20.0 (集群方向一致性奖励)
         self.evasion_bonus = 35.0  # 深度修复: 10.0 → 25.0 → 35.0 (提高250%)
         # 移动要求 (深度修复: 进一步降低速度要求)
         self.min_speed_threshold = 15.0  # 深度修复: 30.0 → 20.0 → 15.0 (进一步降低)
@@ -479,18 +483,22 @@ class Stage3PreyRewardHPO:
         self.high_angular_velocity_penalty = -5.0
         self.angular_velocity_threshold = 0.3
 
-        # 新增: 集群-逃跑冲突检测 (深度修复: 大幅降低)
-        self.herd_escape_conflict_penalty = -2.0  # 在危险时聚集的惩罚 (深度修复: -10.0 → -2.0)
+        # 新增: 集群-逃跑冲突检测 (优化: 移除冲突惩罚，鼓励集群协同逃跑)
+        self.herd_escape_conflict_penalty = 0.0  # 移除惩罚: -2.0 → 0.0 (允许集群灵活逃跑)
         self.dangerous_herd_distance = 200.0  # 猎人200px内不应聚集
 
-        # 新增: 多猎人威胁感知
-        self.threat_decay_distance = 100.0  # 威胁权重衰减距离
+        # 新增: 危险区域集群逃跑加成
+        self.danger_herd_escape_bonus = 8.0  # 危险时集群协同逃跑的额外奖励
+        self.critical_herd_escape_multiplier = 2.0  # 极度危险时的集群逃跑倍数
+
+        # 新增: 多猎人威胁感知 (增强灵敏度)
+        self.threat_decay_distance = 150.0  # 威胁权重衰减距离 (增强: 100.0 → 150.0, 更远感知)
         self.use_multi_hunter_threat = True  # 启用多猎人威胁感知
 
-        # 同类重叠惩罚 (防止猎物过度聚集导致静止)
-        self.same_type_overlap_penalty = -3.0  # 基础惩罚 (深度修复: -20.0 → -8.0 → -3.0, 降低85%)
-        self.overlap_penalty_multiplier = 1.5   # 重叠程度倍数 (深度修复: 3.0 → 2.0 → 1.5)
-        self.min_safe_distance_multiplier = 1.5 # 最小安全距离 = (r1+r2) * 1.5 (猎物需要更大空间)
+        # 同类重叠惩罚 (轻度惩罚过度重叠，但允许适当接近以形成集群)
+        self.same_type_overlap_penalty = -1.0  # 基础惩罚 (进一步降低: -3.0 → -1.0, 鼓励集群)
+        self.overlap_penalty_multiplier = 1.0   # 重叠程度倍数 (降低: 1.5 → 1.0)
+        self.min_safe_distance_multiplier = 1.2 # 最小安全距离 = (r1+r2) * 1.2 (降低: 1.5 → 1.2, 允许更近距离)
 
     def detect_same_type_overlap(self, entity: EntityState, world: WorldState) -> Tuple[int, float]:
         """检测与同类的重叠情况
@@ -641,13 +649,20 @@ class Stage3PreyRewardHPO:
             threat_magnitude = min(1.0, self.danger_distance / (min_distance + 1.0))
             visible_hunters = [(closest_hunter, min_distance)]
 
-        # 3. 逃跑奖励 (必须配合速度! 防止静止刷分)
+        # 3. 即时逃跑奖励 (优化: 增强视觉威胁的即时反应)
         if min_distance < self.danger_distance:
+            # 非线性危险等级: 距离越近反应越强烈
             danger_level = 1.0 - (min_distance / self.danger_distance)
+            danger_level = danger_level ** 1.5  # 指数化，近距离威胁更紧急
+
+            # 视觉范围内立即反应奖励
+            if min_distance < self.danger_distance:
+                immediate_response_bonus = 5.0 * (1.0 - min_distance / self.danger_distance)
+                reward += immediate_response_bonus
 
             # 速度调制: 低速大幅削减奖励
             if prey.speed < self.min_speed_threshold:
-                speed_mult = 0.1  # 低速只给10%
+                speed_mult = 0.15  # 提高: 0.1 → 0.15 (鼓励快速启动)
             else:
                 speed_mult = min(prey.speed / 60.0, 1.0)  # 高速给满额
 
@@ -668,8 +683,11 @@ class Stage3PreyRewardHPO:
             )
             reward += distance_progress_reward
 
-        # 5. 集群奖励 (修改: 只在安全时奖励聚集，且排除重叠个体)
-        nearby_prey = 0
+        # 5. 智能集群奖励 (优化: 跟随同类 + 优先逃避威胁)
+        nearby_prey_list = []
+        nearby_prey_count = 0
+
+        # 收集附近的同类信息
         for entity in curr_world.entities:
             if entity.type == 'prey' and entity.id != prey.id:
                 dx = entity.x - prey.x
@@ -681,21 +699,92 @@ class Stage3PreyRewardHPO:
 
                 # 只计入适当距离内的猎物 (不重叠)
                 if distance < self.herd_distance and distance >= min_safe_distance:
-                    nearby_prey += 1
+                    nearby_prey_count += 1
+                    nearby_prey_list.append((entity, distance, dx, dy))
 
-        if nearby_prey > 0:
-            # 只在相对安全时才奖励聚集
-            if min_distance > self.dangerous_herd_distance:
-                # 安全区域，鼓励聚集
-                herd_reward = self.herd_scale * math.sqrt(nearby_prey)
+        if nearby_prey_count > 0:
+            # 基础集群奖励 (根据是否有威胁调整)
+            in_danger = min_distance < self.danger_distance
+
+            if not in_danger:
+                # 安全区域: 鼓励聚集，形成防御集群
+                herd_reward = self.herd_scale * math.sqrt(nearby_prey_count)
                 reward += herd_reward
+
+                # 5.1 集群凝聚力奖励: 与最近同类保持适当距离
+                if nearby_prey_list:
+                    closest_prey_dist = min(d for _, d, _, _ in nearby_prey_list)
+                    # 理想距离: herd_distance的40-60%
+                    ideal_dist_min = self.herd_distance * 0.4
+                    ideal_dist_max = self.herd_distance * 0.6
+
+                    if ideal_dist_min <= closest_prey_dist <= ideal_dist_max:
+                        # 在理想距离范围内，给凝聚力奖励
+                        cohesion_reward = self.herd_cohesion_bonus
+                        reward += cohesion_reward
+
+                # 5.2 集群方向一致性奖励: 与同类朝向相似
+                if nearby_prey_list and len(nearby_prey_list) >= 2:
+                    # 计算周围猎物的平均朝向
+                    avg_angle_x = sum(math.cos(e.angle) for e, _, _, _ in nearby_prey_list)
+                    avg_angle_y = sum(math.sin(e.angle) for e, _, _, _ in nearby_prey_list)
+                    avg_angle = math.atan2(avg_angle_y, avg_angle_x)
+
+                    # 计算当前猎物与平均朝向的对齐度
+                    angle_diff_herd = prey.angle - avg_angle
+                    while angle_diff_herd > math.pi:
+                        angle_diff_herd -= 2 * math.pi
+                    while angle_diff_herd < -math.pi:
+                        angle_diff_herd += 2 * math.pi
+
+                    alignment = math.cos(angle_diff_herd)
+                    if alignment > 0.5:  # 朝向相似度超过50%
+                        alignment_reward = self.herd_alignment_bonus * alignment
+                        reward += alignment_reward
+
             else:
-                # 危险区域聚集，强烈惩罚 (应该逃跑而不是聚集)
-                herd_conflict_penalty = self.herd_escape_conflict_penalty * nearby_prey * (1.0 - min_distance / self.dangerous_herd_distance)
-                reward += herd_conflict_penalty
-                log_penalty('herd_conflict', abs(herd_conflict_penalty))
-                if abs(herd_conflict_penalty) > 5.0:
-                    print(f"[聚集冲突-HPO] 猎物 {prey.id} 危险时聚集! 惩罚={herd_conflict_penalty:.2f}")
+                # 危险区域: 优先逃避，强化集群协同逃跑
+                danger_level = 1.0 - (min_distance / self.danger_distance)
+
+                # 极度危险标记 (猎人在critical_distance内)
+                is_critical_danger = min_distance < self.critical_distance
+
+                # 检查是否在协同逃跑 (同类也在远离威胁)
+                coordinated_escape_count = 0
+                if nearby_prey_list and len(nearby_prey_list) >= 1:
+                    # 检查周围猎物是否也在背离威胁
+                    for entity, _, _, _ in nearby_prey_list:
+                        # 计算该同类与威胁的角度差
+                        entity_angle_diff = entity.angle - threat_angle
+                        while entity_angle_diff > math.pi:
+                            entity_angle_diff -= 2 * math.pi
+                        while entity_angle_diff < -math.pi:
+                            entity_angle_diff += 2 * math.pi
+                        entity_flee_alignment = -math.cos(entity_angle_diff)
+
+                        # 同类在背离威胁 (逃跑方向)
+                        if entity_flee_alignment > 0.3:  # 至少30%对齐
+                            coordinated_escape_count += 1
+
+                    if coordinated_escape_count > 0:
+                        # 集群协同逃跑: 给予强力奖励
+                        # 基础协同奖励
+                        coordinated_bonus = self.danger_herd_escape_bonus * math.sqrt(coordinated_escape_count)
+
+                        # 极度危险时额外倍数
+                        if is_critical_danger:
+                            coordinated_bonus *= self.critical_herd_escape_multiplier
+
+                        # 危险越高，协同奖励越高
+                        coordinated_bonus *= (0.5 + 0.5 * danger_level)
+
+                        reward += coordinated_bonus
+                    else:
+                        # 虽然有同类但未协同逃跑: 无惩罚，鼓励灵活应对
+                        pass
+                else:
+                    # 独自在危险区: 正常逃跑，无额外惩罚
+                    pass
 
         # 6. 逃跑方向奖励 (使用综合威胁角度)
         # threat_angle已由compute_threat_vector计算
