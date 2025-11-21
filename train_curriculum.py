@@ -15,9 +15,22 @@ Curriculum Learning Training Script (Unified Version)
 4. Stage 4: 联合微调
 """
 
-import argparse
+# CRITICAL: These must be set before ANY other imports
 import os
+os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
+
+import multiprocessing
 import sys
+
+# Force fork method instead of spawn to avoid numpy issues on macOS
+# This MUST be done before importing any packages that use multiprocessing
+if 'torch' not in sys.modules and 'numpy' not in sys.modules:
+    try:
+        multiprocessing.set_start_method('fork', force=True)
+    except RuntimeError:
+        pass  # Already set
+
+import argparse
 from pathlib import Path
 from datetime import datetime
 
@@ -37,6 +50,7 @@ from rl_env import (
     EnhancedEcoMARLEnv,
     CurriculumEcoMARLEnv,
     CurriculumEcoMARLEnvHPO,
+    create_logger_callback,
 )
 
 
@@ -223,10 +237,18 @@ def train_stage(
             # 更新学习率
             hunter_model.learning_rate = stage_config.learning_rate
 
+        # 创建LoggerCallback
+        callback = create_logger_callback(
+            stage=f"{stage_config.name} [猎人训练]",
+            total_steps=stage_config.total_timesteps,
+            update_interval=100
+        )
+
         # 训练
         print(f"开始训练猎人 ({stage_config.total_timesteps} 步)...")
         hunter_model.learn(
             total_timesteps=stage_config.total_timesteps,
+            callback=callback,
             log_interval=reward_log_interval,
             progress_bar=False,
         )
@@ -262,9 +284,17 @@ def train_stage(
         else:
             prey_model.learning_rate = stage_config.learning_rate
 
+        # 创建LoggerCallback
+        callback = create_logger_callback(
+            stage=f"{stage_config.name} [猎物训练]",
+            total_steps=stage_config.total_timesteps,
+            update_interval=100
+        )
+
         print(f"开始训练猎物 ({stage_config.total_timesteps} 步)...")
         prey_model.learn(
             total_timesteps=stage_config.total_timesteps,
+            callback=callback,
             log_interval=reward_log_interval,
             progress_bar=False,
         )
